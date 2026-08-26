@@ -70,32 +70,31 @@ function ProfileView({
   const interests = parseInterests(currentUser.interests)
 
   /*
-   * A field can be in three states, and they mean different things:
-   *   filled  -> show it
-   *   hidden  -> the user chose to hide it (and the server omitted it entirely)
-   *   not set -> they simply have not filled it in
+   * A row on your own profile.
    *
-   * Collapsing the last two into one blank line would misrepresent both.
+   * `privateToYou` marks contact details, which other people never see. It is a
+   * note rather than a state: you are looking at your own profile, so the value
+   * itself is shown - hiding your own email from you would be absurd.
+   *
+   * An empty field still says "Not set" rather than rendering blank, because a
+   * blank line reads as broken rather than as unfilled.
    */
   function Row({
     label,
     value,
-    hidden,
+    privateToYou,
   }: {
     label: string
     value?: string | null
-    hidden?: boolean
+    privateToYou?: boolean
   }) {
     return (
       <div className="profile-row">
         <span className="profile-label">{label}</span>
-        {hidden ? (
-          <span className="muted">Hidden from others</span>
-        ) : value ? (
-          <span>{value}</span>
-        ) : (
-          <span className="muted">Not set</span>
-        )}
+        <span>
+          {value ?? <span className="muted">Not set</span>}
+          {value && privateToYou && <span className="private-note">only you</span>}
+        </span>
       </div>
     )
   }
@@ -105,7 +104,7 @@ function ProfileView({
       <header className="profile-head">
         <Avatar name={currentUser.name ?? currentUser.username} size={72} />
 
-        <div>
+        <div className="profile-identity">
           <h2>{currentUser.name ?? currentUser.username}</h2>
           <p className="muted">@{currentUser.username}</p>
           {currentUser.careerGoal && (
@@ -126,28 +125,16 @@ function ProfileView({
       )}
 
       <div className="profile-rows">
-        <Row label="Email" value={currentUser.email} hidden={currentUser.hideEmail} />
-        <Row
-          label="Phone"
-          value={currentUser.phoneNumber}
-          hidden={currentUser.hidePhone}
-        />
-        <Row
-          label="Education"
-          value={currentUser.education}
-          hidden={currentUser.hideEducation}
-        />
-        <Row
-          label="GitHub"
-          value={currentUser.githubUsername}
-          hidden={currentUser.hideGithub}
-        />
+        <Row label="Email" value={currentUser.email} privateToYou />
+        <Row label="Phone" value={currentUser.phoneNumber} privateToYou />
+        <Row label="Education" value={currentUser.education} />
+        <Row label="GitHub" value={currentUser.githubUsername} />
       </div>
 
       <p className="privacy-note">
-        Fields marked hidden are never sent to anyone else — the server leaves
-        them out of the response entirely, so there is nothing to find in the page
-        source.
+        Your email and phone number are never sent to anyone else. The server
+        leaves them out of the response entirely, so there is nothing to find in
+        the page source.
       </p>
     </section>
   )
@@ -174,32 +161,21 @@ function ProfileForm({
     parseInterests(currentUser.interests),
   )
 
-  /*
-   * All seven privacy switches in one object rather than seven useState calls.
-   * Adding an eighth field then means adding one key, not another state hook
-   * plus another line in every handler that touches them.
-   */
-  const [privacy, setPrivacy] = useState({
-    hideName: currentUser.hideName,
-    hideEmail: currentUser.hideEmail,
-    hidePhone: currentUser.hidePhone,
-    hideEducation: currentUser.hideEducation,
-    hideInterests: currentUser.hideInterests,
-    hideCareerGoal: currentUser.hideCareerGoal,
-    hideGithub: currentUser.hideGithub,
-  })
-
   const [saving, setSaving] = useState(false)
-
-  function togglePrivacy(key: keyof typeof privacy) {
-    setPrivacy((current) => ({ ...current, [key]: !current[key] }))
-  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setSaving(true)
 
     try {
+      /*
+       * The privacy flags are deliberately NOT sent.
+       *
+       * The backend only updates fields that arrive non-null, so omitting them
+       * preserves whatever is stored. Email and phone are hidden by default
+       * (see User.java) and there is no longer a UI for changing that - a safe
+       * default replaced seven switches nobody used.
+       */
       const updated = await profileApi.update({
         name,
         education: education || undefined,
@@ -207,7 +183,6 @@ function ProfileForm({
         interests: interests.join(', ') || undefined,
         careerGoal: careerGoal || undefined,
         githubUsername: githubUsername.trim() || undefined,
-        ...privacy,
       })
 
       onSaved(updated)
@@ -218,42 +193,16 @@ function ProfileForm({
     }
   }
 
-  /* A field label with its "hide from others" switch beside it. */
-  function FieldHeader({
-    label,
-    privacyKey,
-    htmlFor,
-  }: {
-    label: string
-    privacyKey: keyof typeof privacy
-    htmlFor?: string
-  }) {
-    return (
-      <div className="field-head">
-        <label htmlFor={htmlFor}>{label}</label>
-        <label className="switch">
-          <input
-            type="checkbox"
-            checked={privacy[privacyKey]}
-            onChange={() => togglePrivacy(privacyKey)}
-          />
-          <span>Hide</span>
-        </label>
-      </div>
-    )
-  }
-
   return (
     <section className="card">
       <h2>Edit profile</h2>
       <p className="muted">
-        Anything you mark <strong>Hide</strong> is withheld by the server, not just
-        by this page.
+        Your email and phone number are never shown to other people.
       </p>
 
       <form onSubmit={handleSubmit}>
         <div className="field">
-          <FieldHeader label="Name" privacyKey="hideName" htmlFor="p-name" />
+          <label htmlFor="p-name">Name</label>
           <input
             id="p-name"
             type="text"
@@ -264,20 +213,22 @@ function ProfileForm({
         </div>
 
         <div className="field">
-          <FieldHeader label="Email" privacyKey="hideEmail" />
+          <label>Email</label>
           <input type="email" value={currentUser.email ?? ''} disabled />
-          <small className="field-hint">Email cannot be changed.</small>
+          <small className="field-hint">
+            Only visible to you. Email cannot be changed.
+          </small>
         </div>
 
         {currentUser.phoneNumber && (
           <div className="field">
-            <FieldHeader label="Phone" privacyKey="hidePhone" />
+            <label>Phone</label>
             <input type="tel" value={currentUser.phoneNumber} disabled />
           </div>
         )}
 
         <div className="field">
-          <FieldHeader label="Education" privacyKey="hideEducation" htmlFor="p-edu" />
+          <label htmlFor="p-edu">Education</label>
           <select
             id="p-edu"
             value={education}
@@ -292,7 +243,7 @@ function ProfileForm({
         </div>
 
         <div className="field">
-          <FieldHeader label="Interests" privacyKey="hideInterests" />
+          <label>Interests</label>
           <TopicPicker
             selected={interests}
             onChange={setInterests}
@@ -305,7 +256,7 @@ function ProfileForm({
         </div>
 
         <div className="field">
-          <FieldHeader label="Career goal" privacyKey="hideCareerGoal" htmlFor="p-goal" />
+          <label htmlFor="p-goal">Career goal</label>
           <input
             id="p-goal"
             type="text"
@@ -316,7 +267,7 @@ function ProfileForm({
         </div>
 
         <div className="field">
-          <FieldHeader label="GitHub username" privacyKey="hideGithub" htmlFor="p-gh" />
+          <label htmlFor="p-gh">GitHub username</label>
           <input
             id="p-gh"
             type="text"

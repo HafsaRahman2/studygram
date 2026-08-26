@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getAuthToken, setAuthToken } from '../api'
+import { getAuthToken, profile, setAuthToken } from '../api'
 import type { User } from '../types'
 
 /*
@@ -18,13 +18,17 @@ import type { User } from '../types'
  *
  * A NOTE ON SECURITY
  *
- * This stores a user profile, not a credential. Nothing here grants access -
- * the backend does not currently issue session tokens (see the README's
- * "Known limitations"), which is the real gap. Editing this localStorage entry
- * would let you change what the UI *draws*, not what the server *permits*.
+ * What is stored HERE is a user profile, not a credential. The credential is
+ * the JWT, kept separately in api.ts, and that is what actually grants access.
  *
- * The proper version is a short-lived JWT issued at login and verified on
- * every request. That is the next significant thing to build.
+ * Editing this localStorage entry changes what the UI *draws*, never what the
+ * server *permits* - every endpoint identifies the caller from the signed
+ * token and re-checks ownership for itself. Rewriting your cached profile to
+ * claim somebody else's id gets you a differently-worded page and exactly zero
+ * extra permissions.
+ *
+ * The remaining gap is that the token lives in localStorage, where page
+ * JavaScript can read it. See the note in api.ts for that trade-off.
  *
  * WHY A CUSTOM HOOK
  *
@@ -86,6 +90,41 @@ export function useAuth() {
       // this tab; it just will not remember across a refresh.
     }
   }, [user])
+
+  /*
+   * Refresh the cached profile once on startup.
+   *
+   * The copy in localStorage is a snapshot from whenever you last logged in. If
+   * anything changed since - you edited your profile on your phone, or the
+   * server changed a default - this tab would keep showing the stale version
+   * indefinitely, because nothing ever re-reads it.
+   *
+   * One request on load fixes that. A failure is ignored on purpose: the cached
+   * copy is still perfectly usable, and if the token has actually expired the
+   * 401 handler in api.ts logs us out anyway.
+   *
+   * The empty dependency array means this runs once per mount, not on every
+   * change to `user` - which would loop, since it sets `user`.
+   */
+  useEffect(() => {
+    const stored = loadStoredUser()
+    if (!stored) return
+
+    let cancelled = false
+
+    profile
+      .get(stored.username)
+      .then((fresh) => {
+        if (!cancelled) setUser(fresh)
+      })
+      .catch(() => {
+        /* Keep the cached copy. */
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   /*
    * Log out in one tab, log out in all of them.

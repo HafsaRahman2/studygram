@@ -34,19 +34,19 @@ makes you stop every so often.
 | **Topic-based feed** | Posts carry one to five topics. The *For you* feed returns only posts matching the interests on your profile. |
 | **Anonymous posting** | Publish without your identity attached. The server strips the author entirely — see [Engineering notes](#anonymity-is-enforced-on-the-server). |
 | **Helpful marks & comments** | A join table records who found what helpful, so a post can be marked once per person and show who did. |
-| **Communities** | All 64 topics are browsable communities, seeded on startup. |
+| **Communities** | All 64 topics are browsable communities, seeded on startup, reachable from the feed's topic menu. |
 | **AI study assistant** | Four modes — chat, explain a topic, generate practice questions, summarize notes — via the Groq API. |
 | **Take a break** | A 5-minute timer with finite calming activities, then a one-hour cooldown enforced server-side. |
-| **Privacy controls** | Seven per-field switches. A hidden field is omitted from the API response, not merely hidden in the UI. |
+| **Privacy controls** | Email and phone are private by default and omitted from the API response entirely, not merely hidden in the UI. |
 | **Token authentication** | Stateless JWT auth. Every endpoint derives the caller from a signed token rather than trusting an id in the URL. |
 | **GitHub showcase** | Optionally pulls your public repositories onto your profile. |
 | **Study buddies** | Send, accept and reject buddy requests. *(API complete; no UI yet.)* |
 
 ## Screenshots
 
-| The feed | Explore topics |
+| The feed | Study buddies |
 | --- | --- |
-| ![Feed](docs/screenshots/feed.jpg) | ![Explore](docs/screenshots/explore.jpg) |
+| ![Feed](docs/screenshots/feed.jpg) | ![Study buddies](docs/screenshots/buddies.jpg) |
 
 | AI study assistant | Take a break |
 | --- | --- |
@@ -384,6 +384,36 @@ is that a **tampered** one does not, and that Bob cannot delete Alice's post how
 ## Engineering notes
 
 Problems worth explaining, because the fix is more interesting than the feature.
+
+### Simplifying the surface without deleting the code
+
+Ten features across six navigation items is a lot to hand somebody on their
+first visit. Three changes cut what a user has to deal with, without removing
+anything the backend can do:
+
+**Explore folded into the feed.** A separate page listed every topic and showed
+that community's posts — which is what the feed already did when you clicked a
+topic chip. The same destination by two routes, costing a nav item. It is now a
+topic menu in the feed's own tab row, and the category browsing survived intact.
+Nav went from six items to four.
+
+That change also fixed a bug: the old topic filter narrowed whatever posts were
+already loaded, so a topic with nothing recent looked empty even when it was not.
+The menu asks the server for that community's posts instead.
+
+**Seven privacy switches became one sensible default.** Nobody configures seven
+toggles, so in practice everybody's email and phone number were public — that was
+the default, and nothing prompted anyone to think about it. Contact details now
+default to hidden and the switches are gone. The flags and their enforcement
+stayed, because the rule is still worth having; only the decision was taken away
+from the user.
+
+**The composer collapses.** The feed opened with a textarea, a topic picker, a
+checkbox and a button stacked above the first post — four decisions before you
+had read anything. It is one line now, expanding on click. Most visits to a feed
+are to read.
+
+---
 
 ### Unused code is unreviewed code
 

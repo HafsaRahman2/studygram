@@ -12,7 +12,6 @@ import { BreakButton, TakeABreak } from './components/TakeABreak'
 import { Home } from './components/Home'
 import { Login, Signup, ForgotPassword } from './components/Auth'
 import { Feed } from './components/Feed'
-import { Explore } from './components/Explore'
 import { Buddies } from './components/Buddies'
 import { AiAssistant } from './components/AiAssistant'
 import { Profile } from './components/Profile'
@@ -129,7 +128,7 @@ export default function App() {
    * by anyone willing to open the console.
    */
   function renderPage() {
-    const requiresAuth: Page[] = ['feed', 'explore', 'buddies', 'ai', 'profile']
+    const requiresAuth: Page[] = ['feed', 'buddies', 'ai', 'profile']
 
     if (requiresAuth.includes(page) && !user) {
       return <Login onLoggedIn={handleLogin} onNavigate={setPage} />
@@ -147,9 +146,6 @@ export default function App() {
 
       case 'feed':
         return <Feed currentUser={user!} />
-
-      case 'explore':
-        return <Explore currentUser={user!} />
 
       case 'buddies':
         return (

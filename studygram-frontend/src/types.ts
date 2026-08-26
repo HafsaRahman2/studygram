@@ -173,7 +173,6 @@ export type Page =
   | 'signup'
   | 'forgot-password'
   | 'feed'
-  | 'explore'
   | 'buddies'
   | 'ai'
   | 'profile'

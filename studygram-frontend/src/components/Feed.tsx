@@ -1,49 +1,63 @@
-import { useCallback, useEffect, useState } from 'react'
-import { posts as postsApi } from '../api'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { communities as communitiesApi, posts as postsApi } from '../api'
+import { useTopics } from '../hooks/useTopics'
 import type { Post, User } from '../types'
 import { parseInterests } from '../utils/format'
 import { Avatar, EmptyState, Message, SkeletonPost } from './ui'
 import { PostCard } from './PostCard'
 import { TopicPicker } from './TopicPicker'
 
-type FeedTab = 'all' | 'foryou'
-
 /*
- * Feed - The main timeline: a composer at the top, then the posts.
+ * Feed - The timeline, and now also the only place you browse topics
+ *
+ * WHAT CHANGED AND WHY
+ *
+ * There used to be a separate Explore page listing every topic, and clicking
+ * one showed that community's posts. But that is what the feed already does
+ * when you click a topic chip on a post - the same destination reached two
+ * different ways, costing a whole item in the navigation bar.
+ *
+ * So Explore folded in here as a third mode. The category browsing it offered
+ * survives inside the picker; what is gone is the extra page.
+ *
+ * Nav went from six items to four. Nothing was deleted from the backend - the
+ * /api/communities endpoints are unchanged and still used.
  */
+
+type FeedMode = 'all' | 'foryou' | 'topic'
+
 export function Feed({ currentUser }: { currentUser: User }) {
-  const [tab, setTab] = useState<FeedTab>('all')
+  const [mode, setMode] = useState<FeedMode>('all')
+  const [topic, setTopic] = useState<string | null>(null)
+
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  /* When a topic chip is clicked, narrow the list to that topic. */
-  const [topicFilter, setTopicFilter] = useState<string | null>(null)
-
-  /* Composer state */
-  const [content, setContent] = useState('')
-  const [topics, setTopics] = useState<string[]>([])
-  const [anonymous, setAnonymous] = useState(false)
-  const [posting, setPosting] = useState(false)
-  const [composerError, setComposerError] = useState('')
-
   const hasInterests = parseInterests(currentUser.interests).length > 0
-  const MAX_LENGTH = 2000
 
   /*
-   * useCallback stops this function being rebuilt on every render, which
-   * matters because the effect below lists it as a dependency - without it the
-   * effect would re-run constantly and refetch the feed in a loop.
+   * Which posts to show.
+   *
+   * The topic case now asks the SERVER for that community's posts, rather than
+   * filtering whatever happened to already be loaded. The old client-side
+   * filter silently only searched the most recent page of posts, so a topic
+   * with nothing recent looked empty even when it was not.
    */
   const loadPosts = useCallback(async () => {
     setLoading(true)
     setError('')
 
     try {
-      const data =
-        tab === 'foryou'
-          ? await postsApi.personalizedFeed()
-          : await postsApi.feed()
+      let data: Post[]
+
+      if (mode === 'topic' && topic) {
+        data = await communitiesApi.postsIn(topic.toLowerCase())
+      } else if (mode === 'foryou') {
+        data = await postsApi.personalizedFeed()
+      } else {
+        data = await postsApi.feed()
+      }
 
       setPosts(data)
     } catch (err) {
@@ -51,48 +65,17 @@ export function Feed({ currentUser }: { currentUser: User }) {
     } finally {
       setLoading(false)
     }
-  }, [tab])
+  }, [mode, topic])
 
   useEffect(() => {
     loadPosts()
   }, [loadPosts])
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setComposerError('')
-
-    if (!content.trim()) {
-      setComposerError('Write something first.')
-      return
-    }
-
-    if (topics.length === 0) {
-      setComposerError('Pick at least one topic so the right people see this.')
-      return
-    }
-
-    setPosting(true)
-
-    try {
-      const created = await postsApi.create({
-        content: content.trim(),
-        topics,
-        anonymous,
-      })
-
-      // Put the new post straight at the top rather than refetching everything
-      setPosts((current) => [created, ...current])
-      setContent('')
-      setTopics([])
-      setAnonymous(false)
-    } catch (err) {
-      setComposerError(err instanceof Error ? err.message : 'Could not publish your post')
-    } finally {
-      setPosting(false)
-    }
+  function showTopic(name: string) {
+    setTopic(name)
+    setMode('topic')
   }
 
-  /* Replace one post in the list, leaving the others untouched. */
   function updatePost(updated: Post) {
     setPosts((current) => current.map((p) => (p.id === updated.id ? updated : p)))
   }
@@ -101,95 +84,28 @@ export function Feed({ currentUser }: { currentUser: User }) {
     setPosts((current) => current.filter((p) => p.id !== postId))
   }
 
-  /* Client-side narrowing by a clicked topic chip. */
-  const visiblePosts = topicFilter
-    ? posts.filter((p) =>
-        p.topics.some((t) => t.toLowerCase() === topicFilter.toLowerCase()),
-      )
-    : posts
-
-  const remaining = MAX_LENGTH - content.length
-
   return (
     <div className="feed">
-      {/* ------------------------------------------------------- composer */}
-      <section className="composer">
-        <div className="composer-head">
-          <Avatar name={currentUser.name ?? currentUser.username} />
-          <div>
-            <strong>Share what you learned</strong>
-            <p className="composer-hint">
-              A tip, a question, a breakthrough — anything that helps someone else.
-            </p>
-          </div>
-        </div>
+      <Composer
+        currentUser={currentUser}
+        onPosted={(created) => setPosts((current) => [created, ...current])}
+      />
 
-        <form onSubmit={handleSubmit}>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="What did you learn today?"
-            rows={3}
-            maxLength={MAX_LENGTH}
-            aria-label="Post content"
-          />
-
-          {/* Only warn when the limit is actually close, so the counter is a
-              signal rather than permanent decoration. */}
-          {remaining < 200 && (
-            <div className={`char-count ${remaining < 0 ? 'over' : ''}`}>
-              {remaining} characters left
-            </div>
-          )}
-
-          <TopicPicker
-            selected={topics}
-            onChange={setTopics}
-            label="Topics"
-            max={5}
-            placeholder="Add a topic so the right people see this..."
-          />
-
-          <Message kind="error" onDismiss={() => setComposerError('')}>
-            {composerError}
-          </Message>
-
-          <div className="composer-actions">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={anonymous}
-                onChange={(e) => setAnonymous(e.target.checked)}
-              />
-              <span>
-                Post anonymously
-                <small>Your name and username are never sent with the post.</small>
-              </span>
-            </label>
-
-            <button type="submit" className="btn" disabled={posting || !content.trim()}>
-              {posting ? 'Posting...' : 'Post'}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      {/* ----------------------------------------------------------- tabs */}
       <div className="tabs" role="tablist">
         <button
           role="tab"
-          aria-selected={tab === 'all'}
-          className={`tab ${tab === 'all' ? 'active' : ''}`}
-          onClick={() => setTab('all')}
+          aria-selected={mode === 'all'}
+          className={`tab ${mode === 'all' ? 'active' : ''}`}
+          onClick={() => setMode('all')}
         >
           All posts
         </button>
 
         <button
           role="tab"
-          aria-selected={tab === 'foryou'}
-          className={`tab ${tab === 'foryou' ? 'active' : ''}`}
-          onClick={() => setTab('foryou')}
+          aria-selected={mode === 'foryou'}
+          className={`tab ${mode === 'foryou' ? 'active' : ''}`}
+          onClick={() => setMode('foryou')}
           disabled={!hasInterests}
           title={
             hasInterests
@@ -200,14 +116,16 @@ export function Feed({ currentUser }: { currentUser: User }) {
           For you
         </button>
 
-        {topicFilter && (
-          <button className="tab filter-pill" onClick={() => setTopicFilter(null)}>
-            {topicFilter} <span aria-hidden="true">×</span>
-          </button>
-        )}
+        <TopicMenu
+          active={mode === 'topic' ? topic : null}
+          onSelect={showTopic}
+          onClear={() => {
+            setTopic(null)
+            setMode('all')
+          }}
+        />
       </div>
 
-      {/* ---------------------------------------------------------- posts */}
       <Message kind="error" onDismiss={() => setError('')}>
         {error}
       </Message>
@@ -220,36 +138,290 @@ export function Feed({ currentUser }: { currentUser: User }) {
         </>
       )}
 
-      {!loading && visiblePosts.length === 0 && (
+      {!loading && posts.length === 0 && (
         <EmptyState
-          icon={topicFilter ? '🔍' : tab === 'foryou' ? '✨' : '📝'}
+          icon={mode === 'topic' ? '🌱' : mode === 'foryou' ? '✨' : '📝'}
           title={
-            topicFilter
-              ? `Nothing about ${topicFilter} yet`
-              : tab === 'foryou'
+            mode === 'topic'
+              ? `Nothing about ${topic} yet`
+              : mode === 'foryou'
                 ? 'Nothing matching your interests yet'
                 : 'No posts yet'
           }
         >
-          {topicFilter
+          {mode === 'topic'
             ? 'Be the first to post about it.'
-            : tab === 'foryou'
-              ? 'Try the All posts tab, or add more interests to your profile.'
+            : mode === 'foryou'
+              ? 'Try All posts, or add more interests to your profile.'
               : 'Share something you learned and get the feed started.'}
         </EmptyState>
       )}
 
       {!loading &&
-        visiblePosts.map((post) => (
+        posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
             currentUser={currentUser}
             onUpdate={updatePost}
             onDelete={removePost}
-            onTopicClick={setTopicFilter}
+            onTopicClick={showTopic}
           />
         ))}
+    </div>
+  )
+}
+
+/* -------------------------------------------------------------- Composer */
+
+/*
+ * Collapsed by default.
+ *
+ * The feed used to open with a textarea, a topic picker, a checkbox and a Post
+ * button stacked above the first post - four decisions before you had read
+ * anything. Most visits to a feed are to read, not to write.
+ *
+ * So it starts as one line and opens when clicked. The full form is unchanged
+ * once expanded; it just stops being the first thing in your way.
+ */
+function Composer({
+  currentUser,
+  onPosted,
+}: {
+  currentUser: User
+  onPosted: (post: Post) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [content, setContent] = useState('')
+  const [topics, setTopics] = useState<string[]>([])
+  const [anonymous, setAnonymous] = useState(false)
+  const [posting, setPosting] = useState(false)
+  const [error, setError] = useState('')
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const MAX_LENGTH = 2000
+
+  /* Put the cursor in the box when it opens, so the click that opened it is
+     the only click needed before typing. */
+  useEffect(() => {
+    if (open) textareaRef.current?.focus()
+  }, [open])
+
+  function reset() {
+    setContent('')
+    setTopics([])
+    setAnonymous(false)
+    setError('')
+    setOpen(false)
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault()
+    setError('')
+
+    if (!content.trim()) {
+      setError('Write something first.')
+      return
+    }
+
+    if (topics.length === 0) {
+      setError('Pick at least one topic so the right people see this.')
+      return
+    }
+
+    setPosting(true)
+
+    try {
+      const created = await postsApi.create({
+        content: content.trim(),
+        topics,
+        anonymous,
+      })
+
+      onPosted(created)
+      reset()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not publish your post')
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button className="composer-collapsed" onClick={() => setOpen(true)}>
+        <Avatar name={currentUser.name ?? currentUser.username} size={36} />
+        <span>What did you learn today?</span>
+      </button>
+    )
+  }
+
+  const remaining = MAX_LENGTH - content.length
+
+  return (
+    <section className="composer">
+      <form onSubmit={handleSubmit}>
+        <div className="composer-head">
+          <Avatar name={currentUser.name ?? currentUser.username} size={36} />
+          <textarea
+            ref={textareaRef}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="A tip, a question, a breakthrough — anything that helps someone else."
+            rows={3}
+            maxLength={MAX_LENGTH}
+            aria-label="Post content"
+          />
+        </div>
+
+        {remaining < 200 && (
+          <div className={`char-count ${remaining < 0 ? 'over' : ''}`}>
+            {remaining} characters left
+          </div>
+        )}
+
+        <TopicPicker
+          selected={topics}
+          onChange={setTopics}
+          label="Topics"
+          max={5}
+          placeholder="Add a topic so the right people see this..."
+        />
+
+        <Message kind="error" onDismiss={() => setError('')}>
+          {error}
+        </Message>
+
+        <div className="composer-actions">
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={anonymous}
+              onChange={(e) => setAnonymous(e.target.checked)}
+            />
+            <span>
+              Post anonymously
+              <small>Your name and username are never sent with the post.</small>
+            </span>
+          </label>
+
+          <div className="card-actions">
+            <button type="button" className="link" onClick={reset}>
+              Cancel
+            </button>
+            <button type="submit" className="btn" disabled={posting || !content.trim()}>
+              {posting ? 'Posting...' : 'Post'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------- TopicMenu */
+
+/*
+ * The topic browser that replaced the Explore page.
+ *
+ * Shows every topic grouped by category - the one genuinely useful thing
+ * Explore did - but as a menu inside the feed rather than a separate
+ * destination.
+ */
+function TopicMenu({
+  active,
+  onSelect,
+  onClear,
+}: {
+  active: string | null
+  onSelect: (topic: string) => void
+  onClear: () => void
+}) {
+  const { byCategory, loading } = useTopics()
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  /* Close when clicking anywhere else. */
+  useEffect(() => {
+    if (!open) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  useEffect(() => {
+    if (!open) setSearch('')
+  }, [open])
+
+  /* When a topic is showing, the control becomes a removable chip instead. */
+  if (active) {
+    return (
+      <button className="tab filter-pill" onClick={onClear} title="Show all posts again">
+        {active} <span aria-hidden="true">×</span>
+      </button>
+    )
+  }
+
+  const term = search.trim().toLowerCase()
+
+  return (
+    <div className="topic-menu" ref={containerRef}>
+      <button
+        className="tab"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        disabled={loading}
+      >
+        Browse topics <span aria-hidden="true">▾</span>
+      </button>
+
+      {open && (
+        <div className="topic-menu-dropdown">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter topics..."
+            aria-label="Filter topics"
+            autoFocus
+          />
+
+          <div className="topic-menu-list">
+            {Object.entries(byCategory).map(([category, list]) => {
+              const matches = term
+                ? list.filter((t) => t.displayName.toLowerCase().includes(term))
+                : list
+
+              if (matches.length === 0) return null
+
+              return (
+                <div key={category} className="picker-group">
+                  <div className="picker-group-label">{category}</div>
+                  {matches.map((community) => (
+                    <button
+                      key={community.name}
+                      className="picker-option"
+                      onClick={() => {
+                        onSelect(community.displayName)
+                        setOpen(false)
+                      }}
+                    >
+                      {community.displayName}
+                    </button>
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

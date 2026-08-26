@@ -46,15 +46,26 @@ public class User {
     /*
      * PRIVACY SETTINGS
      *
-     * Users can choose to hide their information from others.
-     * Only username is always visible.
+     * Which fields are withheld from other people. Enforced on the way out, in
+     * UserProfileResponse - a hidden field is never written into the response
+     * at all, so there is nothing to dig out of the JSON.
      *
-     * true = hidden (private)
-     * false = visible (public) - default
+     * PRIVATE BY DEFAULT FOR CONTACT DETAILS
+     *
+     * Email and phone default to hidden; everything else defaults to visible.
+     *
+     * These used to all default to false, with seven switches on the profile
+     * page for changing them. Nobody configures seven switches - so in practice
+     * everyone's email address and phone number were public, because that was
+     * the default and nothing prompted them to think about it.
+     *
+     * A safe default beats a setting. The switches are gone from the UI; the
+     * flags and their enforcement stay, because the rule is still worth having
+     * and the API still honours whatever is stored here.
      */
     private boolean hideName = false;
-    private boolean hideEmail = false;
-    private boolean hidePhone = false;
+    private boolean hideEmail = true;
+    private boolean hidePhone = true;
     private boolean hideEducation = false;
     private boolean hideInterests = false;
     private boolean hideCareerGoal = false;
