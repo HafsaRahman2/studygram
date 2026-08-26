@@ -366,13 +366,14 @@ means something now that the identity behind it is trustworthy.
 cd studygram-backend && ./mvnw test
 ```
 
-25 tests, running against an in-memory H2 database so the suite needs no setup and no running
+40 tests, running against an in-memory H2 database so the suite needs no setup and no running
 PostgreSQL.
 
 | Suite | Covers |
 | --- | --- |
 | `JwtServiceTest` | Token round-trip, tampered payloads, tokens signed with the wrong secret, expiry, malformed input, secrets that are too short |
 | `AuthorizationIntegrationTest` | The full application over real HTTP: login, 401s, and one test per attack in the table above |
+| `StudyBuddyIntegrationTest` | The password-hash leak, the request lifecycle, and the search and matching rules |
 | `StudygramBackendApplicationTests` | The context loads — catches broken beans, missing properties and invalid queries |
 
 The negative tests are the point. That a valid token works is table stakes; what protects accounts
@@ -383,6 +384,23 @@ is that a **tampered** one does not, and that Bob cannot delete Alice's post how
 ## Engineering notes
 
 Problems worth explaining, because the fix is more interesting than the feature.
+
+### Unused code is unreviewed code
+
+Wiring up the study buddies UI turned up a vulnerability that had been sitting in the codebase for
+months: `/api/buddies/pending` and `/sent` returned `StudyBuddy` **entities**. Each holds two `User`
+objects, so the JSON contained BCrypt password hashes, plus emails and phone numbers belonging to
+people who had marked them private.
+
+Nobody had noticed because nothing ever called those endpoints. The backend was "finished" and the
+frontend had never been built, so no request had ever been looked at.
+
+The fix is the same one as everywhere else in this file — map through a DTO, never serialize an
+entity — and the test asserts against the **raw response body** rather than a named field, because
+the bug was that an entire object tree got serialized. A field-level check would have passed: nobody
+thinks to assert on `$[0].user.buddy.password`.
+
+---
 
 ### Identity had to move out of the URL
 
@@ -480,11 +498,12 @@ Honest list of what is not finished. These are known, not overlooked.
   `api.ts` rather than glossed over.
 - **No rate limiting.** Nothing stops a script trying thousands of passwords against `/api/login`.
 - **No pagination.** The feed returns every post. Fine at demo scale, wrong at any real size.
-- **Study buddies has no UI.** The API is complete and covered by the auth tests; nothing in React
-  calls it yet.
-- **Test coverage is deliberately narrow.** 25 tests, concentrated on authentication and
-  authorization because that is where a bug is most costly. Posting, comments and the break rules
-  are verified by hand, not by the suite.
+- **Test coverage is deliberately narrow.** 40 tests, concentrated on authentication,
+  authorization and study buddies because that is where a bug is most costly. Posting, comments and
+  the break rules are verified by hand, not by the suite.
+- **Buddy suggestions are ranked in memory.** Every other user is loaded and scored in Java. Fine at
+  this size, wrong at any real one — the fix is to normalize interests into their own table, exactly
+  as post topics were, and let the database do the matching.
 - **`ddl-auto=update` instead of migrations.** Convenient in development; a real deployment needs
   Flyway or Liquibase so schema changes are versioned and reversible.
 - **Navigation is component state, not routes.** There is no react-router, so pages are not linkable

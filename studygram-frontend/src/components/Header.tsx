@@ -14,11 +14,14 @@ export function Header({
   onNavigate,
   onLogout,
   breakSlot,
+  pendingBuddyCount = 0,
 }: {
   currentUser: User | null
   currentPage: Page
   onNavigate: (page: Page) => void
   onLogout: () => void
+  /* Shown as a badge on the Buddies link, so requests are noticed. */
+  pendingBuddyCount?: number
   /*
    * The "Take a break" button, passed in rather than built here.
    *
@@ -48,10 +51,11 @@ export function Header({
     return () => document.removeEventListener('keydown', handleKey)
   }, [menuOpen])
 
-  const links: Array<{ page: Page; label: string }> = currentUser
+  const links: Array<{ page: Page; label: string; badge?: number }> = currentUser
     ? [
         { page: 'feed', label: 'Feed' },
         { page: 'explore', label: 'Explore' },
+        { page: 'buddies', label: 'Buddies', badge: pendingBuddyCount },
         { page: 'ai', label: 'Assistant' },
       ]
     : []
@@ -86,6 +90,14 @@ export function Header({
               onClick={() => onNavigate(link.page)}
             >
               {link.label}
+              {link.badge ? (
+                <span
+                  className="nav-badge"
+                  aria-label={`${link.badge} pending request${link.badge === 1 ? '' : 's'}`}
+                >
+                  {link.badge}
+                </span>
+              ) : null}
             </button>
           ))}
 

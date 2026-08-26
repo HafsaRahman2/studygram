@@ -90,6 +90,46 @@ export interface Community {
 }
 
 /*
+ * A buddy request, seen from one side.
+ *
+ * Mirrors dto/StudyBuddyResponse.java. `user` is always THE OTHER PERSON —
+ * the server resolves that, because you already know who you are.
+ */
+export interface BuddyRequest {
+  requestId: number
+  user: User
+  status: string
+  /* INCOMING means they asked you, so you can accept. OUTGOING means you asked. */
+  direction: 'INCOMING' | 'OUTGOING'
+  createdAt: string
+}
+
+/*
+ * Where you stand with somebody. Decides which button their card shows.
+ *
+ * Computed on the server (StudyBuddyService.describeRelationship) rather than
+ * derived in the browser from three separate lists — re-implementing a rule
+ * client-side is what produced this project's earlier bugs.
+ */
+export type BuddyRelationship =
+  | 'SELF'
+  | 'NONE'
+  | 'REQUEST_SENT'
+  | 'REQUEST_RECEIVED'
+  | 'BUDDIES'
+  | 'REJECTED'
+
+/* One person in search results or suggestions, plus your relationship to them. */
+export interface UserSearchResult {
+  user: User
+  relationship: BuddyRelationship
+  /* Present when a request already exists, so it can be accepted from here. */
+  requestId: number | null
+  /* Topics you both listed — the reason this person is worth connecting with. */
+  sharedInterests: string[]
+}
+
+/*
  * What signup and login return: a token plus the profile it belongs to.
  *
  * Mirrors dto/AuthResponse.java. The token is the credential every later
@@ -134,5 +174,6 @@ export type Page =
   | 'forgot-password'
   | 'feed'
   | 'explore'
+  | 'buddies'
   | 'ai'
   | 'profile'

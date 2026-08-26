@@ -4,6 +4,7 @@ import './App.css'
 import { setUnauthorizedHandler } from './api'
 import { useAuth } from './hooks/useAuth'
 import { useBreak } from './hooks/useBreak'
+import { usePendingBuddies } from './hooks/usePendingBuddies'
 import type { Page } from './types'
 
 import { Header } from './components/Header'
@@ -12,6 +13,7 @@ import { Home } from './components/Home'
 import { Login, Signup, ForgotPassword } from './components/Auth'
 import { Feed } from './components/Feed'
 import { Explore } from './components/Explore'
+import { Buddies } from './components/Buddies'
 import { AiAssistant } from './components/AiAssistant'
 import { Profile } from './components/Profile'
 
@@ -53,6 +55,9 @@ export default function App() {
    * whole app rather than being one more page you can navigate away from.
    */
   const breakState = useBreak(user?.id ?? null)
+
+  /* Powers the badge on the Buddies nav link. */
+  const pendingBuddies = usePendingBuddies(user?.id ?? null)
   const [breakOpen, setBreakOpen] = useState(false)
 
   /*
@@ -124,7 +129,7 @@ export default function App() {
    * by anyone willing to open the console.
    */
   function renderPage() {
-    const requiresAuth: Page[] = ['feed', 'explore', 'ai', 'profile']
+    const requiresAuth: Page[] = ['feed', 'explore', 'buddies', 'ai', 'profile']
 
     if (requiresAuth.includes(page) && !user) {
       return <Login onLoggedIn={handleLogin} onNavigate={setPage} />
@@ -145,6 +150,11 @@ export default function App() {
 
       case 'explore':
         return <Explore currentUser={user!} />
+
+      case 'buddies':
+        return (
+          <Buddies currentUser={user!} onRequestsChanged={pendingBuddies.refresh} />
+        )
 
       case 'ai':
         return <AiAssistant currentUser={user!} />
@@ -169,6 +179,7 @@ export default function App() {
         currentPage={page}
         onNavigate={setPage}
         onLogout={handleLogout}
+        pendingBuddyCount={pendingBuddies.count}
         breakSlot={
           user && (
             <BreakButton

@@ -1553,6 +1553,185 @@ textarea {
   flex: 1;
 }
 
+/* --- Study buddies --- */
+
+.page-head {
+  margin-bottom: 1.5rem;
+}
+
+.section-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+  margin-bottom: 0.75rem;
+}
+
+.section-label .muted {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* A count on a tab, quiet — it is information, not a demand. */
+.tab-count {
+  margin-left: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * A badge, loud — this one means somebody is waiting for you.
+ * Deliberately different from .tab-count: "you have 3 buddies" and "3 people
+ * are waiting" should not look the same.
+ */
+.tab-badge,
+.nav-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 0.4rem;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a1206;
+  font-size: 0.68rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.search-box {
+  margin-bottom: 1.25rem;
+}
+
+.search-box input {
+  width: 100%;
+}
+
+.person-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.75rem;
+}
+
+.person-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color 0.15s ease;
+}
+
+.person-card:hover {
+  border-color: var(--border-strong);
+}
+
+.person-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.person-name {
+  font-weight: 600;
+  font-size: 0.94rem;
+}
+
+.person-handle {
+  font-size: 0.8rem;
+  color: var(--text-subtle);
+}
+
+.person-goal {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.person-action {
+  flex-shrink: 0;
+}
+
+.shared {
+  margin-top: 0.35rem;
+}
+
+.shared-label {
+  font-size: 0.72rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--success);
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* A status, not a button — flat, no hover, nothing to click. */
+.pill {
+  display: inline-block;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.pill-success {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.muted-pill {
+  opacity: 0.65;
+}
+
+.subtle-link {
+  color: var(--text-subtle);
+}
+
+.subtle-link:hover {
+  color: var(--danger);
+}
+
+.danger-btn {
+  background: var(--danger);
+}
+
+.danger-btn:hover:not(:disabled) {
+  background: var(--danger);
+  filter: brightness(1.1);
+}
+
+.request-group {
+  margin-bottom: 1.75rem;
+}
+
+.request-group h3 {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+  margin-bottom: 0.75rem;
+}
+
 /* --- Take a break --- */
 
 .break-btn {
@@ -1882,6 +2061,23 @@ textarea {
 
   .bubble {
     max-width: 100%;
+  }
+
+  /*
+   * Buddy cards stack on narrow screens. Keeping the action button beside a
+   * name squeezes both into unreadable columns on a phone.
+   */
+  .person-card {
+    flex-wrap: wrap;
+  }
+
+  .person-action {
+    width: 100%;
+    padding-left: calc(44px + 0.85rem); /* line up under the text, not the avatar */
+  }
+
+  .card-actions {
+    flex-wrap: wrap;
   }
 
   .auth-card {

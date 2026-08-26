@@ -13,7 +13,16 @@
  * once, and every function returns a properly typed result.
  */
 
-import type { AuthResult, BreakStatus, Comment, Community, Post, User } from './types'
+import type {
+  AuthResult,
+  BreakStatus,
+  BuddyRequest,
+  Comment,
+  Community,
+  Post,
+  User,
+  UserSearchResult,
+} from './types'
 
 /*
  * Where the backend lives.
@@ -344,6 +353,75 @@ export const communities = {
 
   postsIn(name: string) {
     return request<Post[]>(`/api/communities/${name}/posts`)
+  },
+}
+
+/* --------------------------------------------------------------- buddies */
+
+/*
+ * Study buddies.
+ *
+ * Note what is NOT here: any way to ask about somebody else's buddies or
+ * requests. Every one of these endpoints acts on the caller's own connections,
+ * decided by the token.
+ */
+export const buddies = {
+  /* Your accepted buddies. */
+  list() {
+    return request<User[]>('/api/buddies')
+  },
+
+  /* Requests waiting for YOU to accept or reject. */
+  pending() {
+    return request<BuddyRequest[]>('/api/buddies/pending')
+  },
+
+  /* Requests you have sent that are still unanswered. */
+  sent() {
+    return request<BuddyRequest[]>('/api/buddies/sent')
+  },
+
+  count() {
+    return request<{ count: number }>('/api/buddies/count')
+  },
+
+  /*
+   * Find people by username or display name.
+   * Queries under two characters return an empty list from the server.
+   */
+  search(query: string) {
+    return request<UserSearchResult[]>(
+      `/api/buddies/search?q=${encodeURIComponent(query)}`,
+    )
+  },
+
+  /* People who share your interests, most overlap first. */
+  suggestions() {
+    return request<UserSearchResult[]>('/api/buddies/suggestions')
+  },
+
+  sendRequest(buddyId: number) {
+    return request<{ message: string; requestId: number }>('/api/buddies/request', {
+      method: 'POST',
+      body: { buddyId },
+    })
+  },
+
+  accept(requestId: number) {
+    return request<string>(`/api/buddies/accept/${requestId}`, { method: 'POST' })
+  },
+
+  reject(requestId: number) {
+    return request<string>(`/api/buddies/reject/${requestId}`, { method: 'POST' })
+  },
+
+  /*
+   * Removes the connection in either state — an accepted buddy, or a pending
+   * request you want to withdraw. The server looks up the connection between
+   * the two of you regardless of who sent it.
+   */
+  remove(buddyId: number) {
+    return request<string>(`/api/buddies?buddyId=${buddyId}`, { method: 'DELETE' })
   },
 }
 
