@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * A StudyBuddy holds two User objects, and Jackson happily serialized all of
  * both — which meant the response contained:
  *
- *     "password": "$2a$10$v8.gHatL4NGruvZQguLXLO..."
+ *     "password": "$2a$10$EXAMPLE.HASH.NOT.A.REAL.ONE..."
  *
  * BCrypt hashes for every person in your requests list, plus their email and
  * phone number regardless of the privacy switches they had set.
