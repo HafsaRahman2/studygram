@@ -1,25 +1,13 @@
 package com.studygram;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.studygram.entity.Post;
 import com.studygram.entity.User;
-import com.studygram.repository.BreakSessionRepository;
-import com.studygram.repository.CommentRepository;
-import com.studygram.repository.HelpfulRepository;
-import com.studygram.repository.PasswordResetTokenRepository;
 import com.studygram.repository.PostRepository;
-import com.studygram.repository.StudyBuddyRepository;
 import com.studygram.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Map;
 import java.util.Set;
@@ -45,21 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * services, real security filter chain, real (in-memory) database. MockMvc then
  * sends genuine HTTP requests through it without opening a network port.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class AuthorizationIntegrationTest {
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
-    @Autowired private UserRepository userRepository;
-    @Autowired private PostRepository postRepository;
-    @Autowired private CommentRepository commentRepository;
-    @Autowired private HelpfulRepository helpfulRepository;
-    @Autowired private PasswordResetTokenRepository resetTokenRepository;
-    @Autowired private BreakSessionRepository breakSessionRepository;
-    @Autowired private StudyBuddyRepository studyBuddyRepository;
-    @Autowired private BCryptPasswordEncoder passwordEncoder;
+class AuthorizationIntegrationTest extends IntegrationTestBase {
 
     /* Two users, so "acting as somebody else" is actually testable. */
     private User alice;
@@ -68,29 +42,8 @@ class AuthorizationIntegrationTest {
     private String bobToken;
     private Long alicePostId;
 
-    private static final String PASSWORD = "password123";
-
     @BeforeEach
     void setUp() throws Exception {
-        /*
-         * Wipe between tests so each starts from a known state.
-         *
-         * ORDER MATTERS, for exactly the reason PostService.deletePost has to
-         * be careful: every table below holds a foreign key into users, and a
-         * database will not delete a row that other rows still point at.
-         * Children first, parents last.
-         *
-         * The forgot-password test in particular leaves a password reset token
-         * behind, which blocked deleting users until this was written properly.
-         */
-        helpfulRepository.deleteAll();
-        commentRepository.deleteAll();
-        postRepository.deleteAll();
-        breakSessionRepository.deleteAll();
-        resetTokenRepository.deleteAll();
-        studyBuddyRepository.deleteAll();
-        userRepository.deleteAll();
-
         alice = createUser("alice", "alice@test.com");
         bob = createUser("bob", "bob@test.com");
 
@@ -112,22 +65,6 @@ class AuthorizationIntegrationTest {
         user.setPassword(passwordEncoder.encode(PASSWORD));
         user.setInterests("Programming");
         return userRepository.save(user);
-    }
-
-    /* Log in over the real endpoint and pull the token out of the response. */
-    private String login(String email) throws Exception {
-        String body = mockMvc.perform(post("/api/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("emailOrPhone", email, "password", PASSWORD))))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-
-        return objectMapper.readTree(body).get("token").asText();
-    }
-
-    private String bearer(String token) {
-        return "Bearer " + token;
     }
 
     /* ================================================================

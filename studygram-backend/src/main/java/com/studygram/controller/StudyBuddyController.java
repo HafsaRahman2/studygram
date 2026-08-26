@@ -1,6 +1,8 @@
 package com.studygram.controller;
 
+import com.studygram.dto.StudyBuddyResponse;
 import com.studygram.dto.UserProfileResponse;
+import com.studygram.dto.UserSearchResult;
 import com.studygram.entity.StudyBuddy;
 import com.studygram.entity.User;
 import com.studygram.service.StudyBuddyService;
@@ -21,6 +23,8 @@ import java.util.stream.Collectors;
  *   POST /api/buddies/request          → Send buddy request
  *   POST /api/buddies/accept/{id}      → Accept request
  *   POST /api/buddies/reject/{id}      → Reject request
+ *   GET  /api/buddies/search?q=        → Find people to add
+ *   GET  /api/buddies/suggestions      → People who share your interests
  *   GET  /api/buddies/pending          → Get pending requests
  *   GET  /api/buddies                  → Get all buddies
  *   DELETE /api/buddies?buddyId=       → Remove buddy
@@ -116,8 +120,21 @@ public class StudyBuddyController {
     public ResponseEntity<?> getPendingRequests(@AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
-            List<StudyBuddy> requests = studyBuddyService.getPendingRequests(me.id());
-            return ResponseEntity.ok(requests);
+            /*
+             * SECURITY FIX: this used to return the StudyBuddy entities
+             * directly. Each one holds two full User objects, so the response
+             * contained BCrypt password hashes, plus emails and phone numbers
+             * that those users had marked private.
+             *
+             * Mapping through a DTO makes that impossible - a class without a
+             * password field cannot serialize one.
+             */
+            List<StudyBuddyResponse> response = studyBuddyService.getPendingRequests(me.id())
+                    .stream()
+                    .map(request -> StudyBuddyResponse.of(request, me.id()))
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(response);
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -135,8 +152,13 @@ public class StudyBuddyController {
     public ResponseEntity<?> getSentRequests(@AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
-            List<StudyBuddy> requests = studyBuddyService.getSentRequests(me.id());
-            return ResponseEntity.ok(requests);
+            // Same DTO mapping as /pending - never serialize the entity.
+            List<StudyBuddyResponse> response = studyBuddyService.getSentRequests(me.id())
+                    .stream()
+                    .map(request -> StudyBuddyResponse.of(request, me.id()))
+                    .collect(Collectors.toList());
+
+            return ResponseEntity.ok(response);
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -187,6 +209,49 @@ public class StudyBuddyController {
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /*
+     * SEARCH PEOPLE
+     *
+     * URL: GET /api/buddies/search?q=tam
+     *
+     * Each result carries your relationship to that person, so the UI knows
+     * whether to offer Add, Pending, Accept, or nothing at all. Queries shorter
+     * than two characters return an empty list rather than most of the database.
+     */
+    @GetMapping("/search")
+    public ResponseEntity<?> searchUsers(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @RequestParam(name = "q", required = false) String query) {
+        try {
+
+            List<UserSearchResult> results = studyBuddyService.searchUsers(me.id(), query);
+            return ResponseEntity.ok(results);
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /*
+     * SUGGESTED BUDDIES
+     *
+     * URL: GET /api/buddies/suggestions
+     *
+     * People who share interests with you, most overlap first, excluding
+     * anyone you are already connected to. Returns an empty list if you have
+     * not set any interests - there is nothing to match on.
+     */
+    @GetMapping("/suggestions")
+    public ResponseEntity<?> suggestBuddies(@AuthenticationPrincipal AuthenticatedUser me) {
+        try {
+
+            return ResponseEntity.ok(studyBuddyService.suggestBuddies(me.id(), 10));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

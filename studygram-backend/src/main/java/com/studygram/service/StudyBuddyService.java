@@ -1,5 +1,7 @@
 package com.studygram.service;
 
+import com.studygram.dto.UserProfileResponse;
+import com.studygram.dto.UserSearchResult;
 import com.studygram.entity.StudyBuddy;
 import com.studygram.entity.User;
 import com.studygram.repository.StudyBuddyRepository;
@@ -8,7 +10,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /*
  * StudyBuddyService - Business logic for buddy connections
@@ -27,6 +34,12 @@ public class StudyBuddyService {
 
     @Autowired
     private UserRepository userRepository;
+
+    /* Look up a user, or fail with a clear message. Used throughout. */
+    private User findUser(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
 
     /*
      * SEND BUDDY REQUEST
@@ -162,6 +175,151 @@ public class StudyBuddyService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         return studyBuddyRepository.countAcceptedBuddies(user);
+    }
+
+    /*
+     * WORK OUT WHERE TWO PEOPLE STAND
+     *
+     * Every "find buddies" result needs a button, and which button depends on
+     * this. Computing it here - once, on the server - keeps the rule in one
+     * place instead of having the browser re-derive it from three separate
+     * lists.
+     */
+    public UserSearchResult describeRelationship(User viewer, User other) {
+
+        UserSearchResult result = new UserSearchResult();
+        result.setUser(UserProfileResponse.of(other, viewer.getId()));
+        result.setSharedInterests(sharedInterests(viewer, other));
+
+        if (viewer.getId().equals(other.getId())) {
+            result.setRelationship("SELF");
+            return result;
+        }
+
+        StudyBuddy connection = studyBuddyRepository
+                .findExistingConnection(viewer, other)
+                .orElse(null);
+
+        if (connection == null) {
+            result.setRelationship("NONE");
+            return result;
+        }
+
+        result.setRequestId(connection.getId());
+
+        switch (connection.getStatus()) {
+            case "ACCEPTED" -> result.setRelationship("BUDDIES");
+            case "REJECTED" -> result.setRelationship("REJECTED");
+            default -> {
+                // Pending: which way round decides whether you can accept it
+                boolean viewerSentIt = connection.getUser().getId().equals(viewer.getId());
+                result.setRelationship(viewerSentIt ? "REQUEST_SENT" : "REQUEST_RECEIVED");
+            }
+        }
+
+        return result;
+    }
+
+    /*
+     * SEARCH PEOPLE by username or display name.
+     *
+     * Returns everyone matching, each annotated with your relationship to them.
+     * A blank query returns nothing rather than everybody - "show me every user
+     * on the platform" is not a search, and it is not something a social app
+     * should hand out on request.
+     */
+    public List<UserSearchResult> searchUsers(Long viewerId, String query) {
+
+        User viewer = findUser(viewerId);
+
+        if (query == null || query.trim().length() < 2) {
+            return List.of();
+        }
+
+        String trimmed = query.trim();
+
+        return userRepository
+                .findTop20ByUsernameContainingIgnoreCaseOrNameContainingIgnoreCase(trimmed, trimmed)
+                .stream()
+                // Never return the searcher to themselves
+                .filter(user -> !user.getId().equals(viewerId))
+                .map(user -> describeRelationship(viewer, user))
+                .collect(Collectors.toList());
+    }
+
+    /*
+     * SUGGEST BUDDIES - people studying the same things as you.
+     *
+     * This is the app's actual premise, so the ranking is the feature: sort by
+     * how many interests you share, and show which ones. Someone with three
+     * subjects in common is a genuinely useful suggestion; a random username is
+     * not.
+     *
+     * People you are already connected to (or have a pending request with) are
+     * filtered out - suggesting someone you asked yesterday is noise.
+     *
+     * SCALE NOTE: this loads every other user and ranks them in memory. At this
+     * project's size that is a few dozen rows and is not worth optimising. It
+     * would not survive real numbers; the fix is to normalize interests into
+     * their own table, exactly as post topics were, and let the database do the
+     * matching and the limiting.
+     */
+    public List<UserSearchResult> suggestBuddies(Long viewerId, int limit) {
+
+        User viewer = findUser(viewerId);
+
+        // No interests set means nothing to match on.
+        if (parseInterests(viewer.getInterests()).isEmpty()) {
+            return List.of();
+        }
+
+        return userRepository.findByIdNot(viewerId).stream()
+                .map(candidate -> describeRelationship(viewer, candidate))
+                // Only people you have no connection with, who share something
+                .filter(result -> "NONE".equals(result.getRelationship()))
+                .filter(result -> !result.getSharedInterests().isEmpty())
+                .sorted(Comparator.comparingInt(
+                        (UserSearchResult r) -> r.getSharedInterests().size()).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
+    /*
+     * Interests both people listed, in the first person's spelling.
+     *
+     * Compared case-insensitively, because interests are free text stored as a
+     * comma-separated string: one user's "programming" and another's
+     * "Programming" are the same subject and must match.
+     */
+    private List<String> sharedInterests(User a, User b) {
+
+        Set<String> mine = new HashSet<>(parseInterests(a.getInterests()));
+
+        return parseInterests(b.getInterests()).stream()
+                .filter(mine::contains)
+                .map(this::titleCase)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    /* "Programming, math" -> ["programming", "math"] */
+    private List<String> parseInterests(String commaSeparated) {
+        if (commaSeparated == null || commaSeparated.isBlank()) {
+            return List.of();
+        }
+
+        return Arrays.stream(commaSeparated.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(String::toLowerCase)
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    /* Interests are compared lowercase but displayed capitalised. */
+    private String titleCase(String value) {
+        if (value.isEmpty()) return value;
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 
     /*

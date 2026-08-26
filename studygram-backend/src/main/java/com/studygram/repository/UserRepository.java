@@ -2,6 +2,7 @@ package com.studygram.repository;
 
 import com.studygram.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 import java.util.Optional;
 
 /*
@@ -59,5 +60,33 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Check if phone number already exists (for signup validation).
      */
     boolean existsByPhoneNumber(String phoneNumber);
+
+    /*
+     * Search people by username or display name.
+     *
+     * The method name is long because Spring Data builds the query from it:
+     *   findTop20By  -> LIMIT 20
+     *   Username / Name ContainingIgnoreCase -> WHERE LOWER(col) LIKE LOWER('%q%')
+     *   Or           -> the two conditions are OR'd
+     *
+     * Searching both fields matters: people look for each other by the name
+     * they know ("Tamanna") as often as by a handle ("toma").
+     *
+     * The limit is deliberate. Without it, a one-letter query would return every
+     * account in the database in a single response.
+     */
+    List<User> findTop20ByUsernameContainingIgnoreCaseOrNameContainingIgnoreCase(
+            String username, String name);
+
+    /*
+     * Everyone except one person - the candidate pool for buddy suggestions.
+     *
+     * SCALE NOTE: suggestions are ranked in memory (see StudyBuddyService),
+     * which is fine for a project of this size and would not be at scale. The
+     * honest fix is to normalize interests into their own table, the same way
+     * post topics were, and let the database do the matching. That refactor is
+     * noted in the README rather than pretended away.
+     */
+    List<User> findByIdNot(Long id);
 
 }
