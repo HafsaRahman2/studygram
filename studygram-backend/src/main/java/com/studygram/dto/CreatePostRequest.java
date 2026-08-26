@@ -10,19 +10,18 @@ import java.util.Set;
  *
  * When a user creates a post, the frontend sends:
  * {
- *   "userId": 1,
  *   "content": "I finally understand recursion!",
  *   "topics": ["Programming", "Computer Science"],
  *   "anonymous": false
  * }
  *
  * If anonymous is true, the user's name won't show on the post.
+ *
+ * There is no userId field. The author is taken from the token on the request,
+ * so nobody can post as somebody else by editing a number in the body.
  */
 @Data
 public class CreatePostRequest {
-
-    // ID of the user creating the post
-    private Long userId;
 
     // The text content of the post
     private String content;

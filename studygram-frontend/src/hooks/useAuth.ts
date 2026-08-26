@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getAuthToken, setAuthToken } from '../api'
 import type { User } from '../types'
 
 /*
@@ -44,6 +45,16 @@ const STORAGE_KEY = 'studygram.user'
  */
 function loadStoredUser(): User | null {
   try {
+    /*
+     * A stored profile is only a session if there is also a token to go with
+     * it. Without this check, clearing the token (or having it expire) would
+     * leave the app looking logged in while every request came back 401.
+     *
+     * The token is the session; the profile is just a cached copy of who it
+     * belongs to.
+     */
+    if (!getAuthToken()) return null
+
     const raw = localStorage.getItem(STORAGE_KEY)
     return raw ? (JSON.parse(raw) as User) : null
   } catch {
@@ -100,7 +111,16 @@ export function useAuth() {
    */
   const login = useCallback((loggedInUser: User) => setUser(loggedInUser), [])
 
-  const logout = useCallback(() => setUser(null), [])
+  /*
+   * Logging out throws the token away as well as the profile.
+   *
+   * Clearing only the profile would leave a working credential sitting in
+   * localStorage on what might be a shared computer.
+   */
+  const logout = useCallback(() => {
+    setAuthToken(null)
+    setUser(null)
+  }, [])
 
   /* Used after a profile edit, to refresh the cached copy. */
   const updateUser = useCallback((updated: User) => setUser(updated), [])

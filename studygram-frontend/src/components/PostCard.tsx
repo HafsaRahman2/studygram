@@ -60,7 +60,7 @@ export function PostCard({
     })
 
     try {
-      const result = await postsApi.toggleHelpful(post.id, currentUser.id)
+      const result = await postsApi.toggleHelpful(post.id)
       // Trust the server's numbers over our guess
       onUpdate({
         ...post,
@@ -77,7 +77,7 @@ export function PostCard({
   async function handleDelete() {
     setBusy(true)
     try {
-      await postsApi.remove(post.id, currentUser.id)
+      await postsApi.remove(post.id)
       onDelete(post.id)
     } catch {
       setBusy(false)

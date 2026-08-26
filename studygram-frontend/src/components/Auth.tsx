@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { auth } from '../api'
+import { auth, setAuthToken } from '../api'
 import type { Page, User } from '../types'
 import { Message, PasswordInput } from './ui'
 
@@ -32,8 +32,14 @@ export function Login({
     setSubmitting(true)
 
     try {
-      const user = await auth.login(emailOrPhone, password)
-      onLoggedIn(user)
+      const result = await auth.login(emailOrPhone, password)
+
+      /*
+       * Store the token BEFORE telling the app we are logged in, so the very
+       * first authenticated request (loading the feed) already carries it.
+       */
+      setAuthToken(result.token)
+      onLoggedIn(result.user)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')
     } finally {

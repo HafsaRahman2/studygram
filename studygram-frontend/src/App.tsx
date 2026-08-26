@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 
+import { setUnauthorizedHandler } from './api'
 import { useAuth } from './hooks/useAuth'
 import { useBreak } from './hooks/useBreak'
 import type { Page } from './types'
@@ -92,6 +93,26 @@ export default function App() {
     logout()
     setPage('home')
   }
+
+  /*
+   * Handle the session expiring underneath us.
+   *
+   * api.ts calls this whenever the server rejects our token. Rather than every
+   * screen showing its own "Authentication required" error while the header
+   * still shows an avatar, the whole app drops back to the login page once.
+   *
+   * Registered in an effect (not during render) because it is a side effect on
+   * a module outside React, and cleaned up on unmount so a stale callback can
+   * never fire into a component that no longer exists.
+   */
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout()
+      setPage('login')
+    })
+
+    return () => setUnauthorizedHandler(null)
+  }, [logout])
 
   /*
    * Screens that require a login.

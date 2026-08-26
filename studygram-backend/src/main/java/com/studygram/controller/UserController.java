@@ -1,5 +1,6 @@
 package com.studygram.controller;
 
+import com.studygram.dto.AuthResponse;
 import com.studygram.dto.ChangePasswordRequest;
 import com.studygram.dto.ForgotPasswordRequest;
 import com.studygram.dto.LoginRequest;
@@ -7,9 +8,12 @@ import com.studygram.dto.ResetPasswordRequest;
 import com.studygram.dto.UpdateProfileRequest;
 import com.studygram.dto.UserProfileResponse;
 import com.studygram.entity.User;
+import com.studygram.security.AuthenticatedUser;
+import com.studygram.security.JwtService;
 import com.studygram.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /*
@@ -28,6 +32,9 @@ public class UserController {
      */
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private JwtService jwtService;
 
     /*
      * SIGNUP ENDPOINT
@@ -63,8 +70,14 @@ public class UserController {
              * on remembering to blank out every sensitive field, every time, on
              * every endpoint. A DTO cannot forget: fields that are not on the
              * class cannot be serialized.
+             *
+             * A token comes back too, so signing up logs you straight in rather
+             * than bouncing you to the login form to retype what you just typed.
              */
-            return ResponseEntity.ok(UserProfileResponse.ofOwner(savedUser));
+            return ResponseEntity.ok(AuthResponse.of(
+                    jwtService.createToken(savedUser),
+                    UserProfileResponse.ofOwner(savedUser)
+            ));
 
         } catch (RuntimeException e) {
             // Return 400 Bad Request with error message
@@ -93,8 +106,15 @@ public class UserController {
                 loginRequest.getPassword()
             );
 
-            // You are logging into your own account, so you get the full view
-            return ResponseEntity.ok(UserProfileResponse.ofOwner(user));
+            /*
+             * The password has now been verified, so this is the one moment we
+             * are entitled to mint a token. Everything the client does from
+             * here on is authenticated by presenting it back.
+             */
+            return ResponseEntity.ok(AuthResponse.of(
+                    jwtService.createToken(user),
+                    UserProfileResponse.ofOwner(user)
+            ));
 
         } catch (RuntimeException e) {
             /*
@@ -120,7 +140,7 @@ public class UserController {
     @GetMapping("/profile/{username}")
     public ResponseEntity<?> getProfile(
             @PathVariable String username,
-            @RequestParam(required = false) Long viewerId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
             User user = userService.getUserByUsername(username);
 
@@ -128,8 +148,13 @@ public class UserController {
              * The privacy flags are applied HERE, on the way out. A field the
              * user chose to hide is never put into the response at all, so
              * there is nothing for a curious viewer to dig out of the JSON.
+             *
+             * The viewer's identity comes from the verified token, not from a
+             * query parameter. Previously a caller could pass ?viewerId=<anyone>
+             * and be handed that person's hidden fields, because the server
+             * simply believed the number.
              */
-            return ResponseEntity.ok(UserProfileResponse.of(user, viewerId));
+            return ResponseEntity.ok(UserProfileResponse.of(user, me.id()));
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -152,13 +177,21 @@ public class UserController {
      *
      * Updates only the fields that are provided.
      */
-    @PutMapping("/profile/{userId}")
+    @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(
-            @PathVariable Long userId,
+            @AuthenticationPrincipal AuthenticatedUser me,
             @RequestBody UpdateProfileRequest request) {
         try {
+            /*
+             * There is no userId in this URL any more, and that is the fix.
+             *
+             * The old signature was PUT /api/profile/{userId} - change the
+             * number and you edited somebody else's profile, including their
+             * privacy settings. You can only ever edit the account the token
+             * belongs to now, because that is the only id available here.
+             */
             User user = userService.updateProfile(
-                userId,
+                me.id(),
                 request.getName(),
                 request.getEducation(),
                 request.getInterests(),
@@ -190,10 +223,16 @@ public class UserController {
      * Requires current password for verification
      */
     @PostMapping("/change-password")
-    public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<?> changePassword(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @RequestBody ChangePasswordRequest request) {
         try {
+            /*
+             * The user id comes from the token, not from the request body.
+             * ChangePasswordRequest no longer even has a userId field to send.
+             */
             userService.changePassword(
-                request.getUserId(),
+                me.id(),
                 request.getCurrentPassword(),
                 request.getNewPassword()
             );

@@ -42,8 +42,8 @@ export function Feed({ currentUser }: { currentUser: User }) {
     try {
       const data =
         tab === 'foryou'
-          ? await postsApi.personalizedFeed(currentUser.id)
-          : await postsApi.feed(currentUser.id)
+          ? await postsApi.personalizedFeed()
+          : await postsApi.feed()
 
       setPosts(data)
     } catch (err) {
@@ -51,7 +51,7 @@ export function Feed({ currentUser }: { currentUser: User }) {
     } finally {
       setLoading(false)
     }
-  }, [tab, currentUser.id])
+  }, [tab])
 
   useEffect(() => {
     loadPosts()
@@ -75,7 +75,6 @@ export function Feed({ currentUser }: { currentUser: User }) {
 
     try {
       const created = await postsApi.create({
-        userId: currentUser.id,
         content: content.trim(),
         topics,
         anonymous,

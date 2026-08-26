@@ -7,17 +7,16 @@ import lombok.Data;
  *
  * Frontend sends:
  * {
- *   "userId": 1,
  *   "postId": 5,
  *   "content": "Great explanation!",
  *   "anonymous": false
  * }
+ *
+ * There is no userId field. Who is commenting is taken from the token on the
+ * request, not from anything the client says about itself.
  */
 @Data
 public class CreateCommentRequest {
-
-    // Who is commenting
-    private Long userId;
 
     // Which post to comment on
     private Long postId;

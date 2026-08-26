@@ -13,7 +13,7 @@
  * once, and every function returns a properly typed result.
  */
 
-import type { BreakStatus, Comment, Community, Post, User } from './types'
+import type { AuthResult, BreakStatus, Comment, Community, Post, User } from './types'
 
 /*
  * Where the backend lives.
@@ -23,6 +23,80 @@ import type { BreakStatus, Comment, Community, Post, User } from './types'
  * server without a code change; localhost is the fallback for development.
  */
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
+
+/* ------------------------------------------------------------------ token */
+
+/*
+ * THE AUTH TOKEN
+ *
+ * Every protected endpoint requires an "Authorization: Bearer <token>" header.
+ * Rather than making every caller remember to attach it, the token is held here
+ * and `request()` adds it to everything automatically.
+ *
+ * WHERE IT IS KEPT, AND THE HONEST TRADE-OFF
+ *
+ * localStorage, which means any JavaScript running on this page can read it.
+ * If an attacker ever got a script onto the page (an XSS flaw), they could
+ * steal the token and act as the user until it expires.
+ *
+ * The more secure option is an httpOnly cookie, which JavaScript cannot read at
+ * all — but that reintroduces CSRF (because browsers send cookies
+ * automatically) and needs matching server work. This project uses localStorage
+ * for simplicity and says so in the README rather than pretending the question
+ * does not exist.
+ *
+ * Mitigations that ARE in place: the token expires, React escapes rendered
+ * content by default, and no user content is ever inserted with
+ * dangerouslySetInnerHTML.
+ */
+const TOKEN_KEY = 'studygram.token'
+
+/*
+ * Cached in a module variable so the common path does not touch localStorage on
+ * every single request; localStorage is synchronous and blocks the main thread.
+ */
+let authToken: string | null = readStoredToken()
+
+function readStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY)
+  } catch {
+    // Private browsing modes can make localStorage throw rather than return null.
+    return null
+  }
+}
+
+export function setAuthToken(token: string | null) {
+  authToken = token
+
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token)
+    } else {
+      localStorage.removeItem(TOKEN_KEY)
+    }
+  } catch {
+    // Session still works for this tab; it just will not survive a refresh.
+  }
+}
+
+export function getAuthToken(): string | null {
+  return authToken
+}
+
+/*
+ * Called when the server rejects our token — expired, or the signing secret
+ * changed because the backend restarted with a new one.
+ *
+ * A callback rather than importing the auth hook, because api.ts must not
+ * depend on React. App registers a handler that clears the session and sends
+ * the user back to the login screen.
+ */
+let onUnauthorized: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorized = handler
+}
 
 /*
  * ApiError - an error that carries the message the server actually sent.
@@ -59,12 +133,27 @@ async function request<T>(
 ): Promise<T> {
   const { method = 'GET', body } = options
 
+  /*
+   * Build the headers: JSON content type when there is a body, and the token
+   * whenever we have one. Attaching it in one place means no endpoint can be
+   * accidentally called unauthenticated.
+   */
+  const headers: Record<string, string> = {}
+
+  if (body) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
   let response: Response
 
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     })
   } catch {
@@ -82,6 +171,26 @@ async function request<T>(
   const text = await response.text()
 
   if (!response.ok) {
+    /*
+     * 401 means the server did not accept our token — it expired, or it was
+     * issued by a backend that has since restarted with a different secret.
+     *
+     * Handling it centrally means the app logs out cleanly instead of every
+     * screen independently showing "Authentication required" while looking
+     * logged in.
+     *
+     * Login and signup are excluded: a 401 there means "wrong password", which
+     * the form should display, not a dead session.
+     */
+    if (
+      response.status === 401 &&
+      !path.startsWith('/api/login') &&
+      !path.startsWith('/api/signup')
+    ) {
+      setAuthToken(null)
+      onUnauthorized?.()
+    }
+
     throw new ApiError(text || `Request failed (${response.status})`, response.status)
   }
 
@@ -98,16 +207,17 @@ async function request<T>(
 }
 
 /*
- * `viewerId` appears throughout the API below.
+ * NOTE ON WHAT IS NO LONGER HERE
  *
- * It tells the server who is asking, so it can decide what that person is
- * allowed to see: whose posts show a Delete button, whether a hidden email is
- * included, and so on. The server never trusts it for anything destructive -
- * every write re-checks ownership independently.
+ * These functions used to pass `userId` and `viewerId` in query strings, so the
+ * server could tell who was asking. That was the whole vulnerability: the
+ * client declared its own identity, and the server believed it.
+ *
+ * Those parameters are gone. Identity now travels in the signed token attached
+ * to every request above, and the server derives the caller from it. Ids that
+ * remain in these URLs point at the RESOURCE being acted on (which post, whose
+ * profile to view), never at who is doing the acting.
  */
-function viewerQuery(viewerId?: number, separator = '?'): string {
-  return viewerId ? `${separator}viewerId=${viewerId}` : ''
-}
 
 /* ------------------------------------------------------------------ auth */
 
@@ -119,11 +229,11 @@ export const auth = {
     phoneNumber: string | null
     password: string
   }) {
-    return request<User>('/api/signup', { method: 'POST', body: data })
+    return request<AuthResult>('/api/signup', { method: 'POST', body: data })
   },
 
   login(emailOrPhone: string, password: string) {
-    return request<User>('/api/login', {
+    return request<AuthResult>('/api/login', {
       method: 'POST',
       body: { emailOrPhone, password },
     })
@@ -145,10 +255,14 @@ export const auth = {
     })
   },
 
-  changePassword(userId: number, currentPassword: string, newPassword: string) {
+  /*
+   * No userId: whose password changes is decided by the token, not by us.
+   * The current password is still required as proof it is really you.
+   */
+  changePassword(currentPassword: string, newPassword: string) {
     return request<string>('/api/change-password', {
       method: 'POST',
-      body: { userId, currentPassword, newPassword },
+      body: { currentPassword, newPassword },
     })
   },
 }
@@ -156,12 +270,17 @@ export const auth = {
 /* --------------------------------------------------------------- profile */
 
 export const profile = {
-  get(username: string, viewerId?: number) {
-    return request<User>(`/api/profile/${username}${viewerQuery(viewerId)}`)
+  get(username: string) {
+    return request<User>(`/api/profile/${username}`)
   },
 
-  update(userId: number, data: Partial<User>) {
-    return request<User>(`/api/profile/${userId}`, { method: 'PUT', body: data })
+  /*
+   * No id in the URL. This edits YOUR profile, and there is no way to name
+   * another one - which is what stops the old
+   * PUT /api/profile/{someoneElsesId} from working.
+   */
+  update(data: Partial<User>) {
+    return request<User>('/api/profile', { method: 'PUT', body: data })
   },
 }
 
@@ -169,57 +288,49 @@ export const profile = {
 
 export const posts = {
   /* The main feed: everything, newest first. */
-  feed(viewerId?: number) {
-    return request<Post[]>(`/api/posts${viewerQuery(viewerId)}`)
+  feed() {
+    return request<Post[]>('/api/posts')
   },
 
-  /* The "For You" feed: only topics matching the user's interests. */
-  personalizedFeed(userId: number) {
-    return request<Post[]>(`/api/posts/feed/${userId}`)
+  /* The "For You" feed: only topics matching your interests. Always your own. */
+  personalizedFeed() {
+    return request<Post[]>('/api/posts/feed')
   },
 
-  byUser(userId: number, viewerId?: number) {
-    return request<Post[]>(`/api/posts/user/${userId}${viewerQuery(viewerId)}`)
+  /* userId here is WHOSE posts to show - a lookup, not an identity claim. */
+  byUser(userId: number) {
+    return request<Post[]>(`/api/posts/user/${userId}`)
   },
 
-  create(data: {
-    userId: number
-    content: string
-    topics: string[]
-    anonymous: boolean
-  }) {
+  create(data: { content: string; topics: string[]; anonymous: boolean }) {
     return request<Post>('/api/posts', { method: 'POST', body: data })
   },
 
-  toggleHelpful(postId: number, userId: number) {
+  toggleHelpful(postId: number) {
     return request<{ marked: boolean; helpfulCount: number; helpfulUsers: string[] }>(
-      `/api/posts/${postId}/helpful?userId=${userId}`,
+      `/api/posts/${postId}/helpful`,
       { method: 'POST' },
     )
   },
 
-  remove(postId: number, userId: number) {
-    return request<string>(`/api/posts/${postId}?userId=${userId}`, {
-      method: 'DELETE',
-    })
+  remove(postId: number) {
+    return request<string>(`/api/posts/${postId}`, { method: 'DELETE' })
   },
 }
 
 /* -------------------------------------------------------------- comments */
 
 export const comments = {
-  forPost(postId: number, viewerId?: number) {
-    return request<Comment[]>(`/api/comments/post/${postId}${viewerQuery(viewerId)}`)
+  forPost(postId: number) {
+    return request<Comment[]>(`/api/comments/post/${postId}`)
   },
 
-  add(data: { userId: number; postId: number; content: string; anonymous: boolean }) {
+  add(data: { postId: number; content: string; anonymous: boolean }) {
     return request<Comment>('/api/comments', { method: 'POST', body: data })
   },
 
-  remove(commentId: number, userId: number) {
-    return request<string>(`/api/comments/${commentId}?userId=${userId}`, {
-      method: 'DELETE',
-    })
+  remove(commentId: number) {
+    return request<string>(`/api/comments/${commentId}`, { method: 'DELETE' })
   },
 }
 
@@ -243,22 +354,22 @@ export const communities = {
  * state with the result rather than guessing what changed and refetching.
  */
 export const breaks = {
-  status(userId: number) {
-    return request<BreakStatus>(`/api/breaks/status/${userId}`)
+  status() {
+    return request<BreakStatus>('/api/breaks/status')
   },
 
-  start(userId: number) {
-    return request<BreakStatus>(`/api/breaks/start?userId=${userId}`, { method: 'POST' })
+  start() {
+    return request<BreakStatus>('/api/breaks/start', { method: 'POST' })
   },
 
   /* The single allowed +5 minutes. */
-  extend(userId: number) {
-    return request<BreakStatus>(`/api/breaks/extend?userId=${userId}`, { method: 'POST' })
+  extend() {
+    return request<BreakStatus>('/api/breaks/extend', { method: 'POST' })
   },
 
   /* Finish early - starts the cooldown early too. */
-  end(userId: number) {
-    return request<BreakStatus>(`/api/breaks/end?userId=${userId}`, { method: 'POST' })
+  end() {
+    return request<BreakStatus>('/api/breaks/end', { method: 'POST' })
   },
 }
 

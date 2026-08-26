@@ -90,6 +90,18 @@ export interface Community {
 }
 
 /*
+ * What signup and login return: a token plus the profile it belongs to.
+ *
+ * Mirrors dto/AuthResponse.java. The token is the credential every later
+ * request carries; the user comes along so the app can render a name and
+ * avatar without a second round trip.
+ */
+export interface AuthResult {
+  token: string
+  user: User
+}
+
+/*
  * The state of the "Take a break" feature for one user.
  *
  * Mirrors dto/BreakStatusResponse.java. The server owns these rules entirely -

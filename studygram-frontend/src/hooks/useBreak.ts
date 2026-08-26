@@ -40,7 +40,7 @@ export function useBreak(userId: number | null) {
     if (!userId) return
 
     try {
-      const next = await breaks.status(userId)
+      const next = await breaks.status()
       applyStatus(next)
       setError('')
     } catch (err) {
@@ -139,7 +139,7 @@ export function useBreak(userId: number | null) {
       if (!userId) return
 
       try {
-        const next = await breaks[action](userId)
+        const next = await breaks[action]()
         applyStatus(next)
         setError('')
       } catch (err) {

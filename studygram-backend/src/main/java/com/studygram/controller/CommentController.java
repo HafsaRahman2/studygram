@@ -4,8 +4,10 @@ import com.studygram.dto.CommentResponse;
 import com.studygram.dto.CreateCommentRequest;
 import com.studygram.entity.Comment;
 import com.studygram.service.CommentService;
+import com.studygram.security.AuthenticatedUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
  *   POST   /api/comments              → Add comment to a post
  *   GET    /api/comments/post/{id}    → Get all comments on a post
  *   DELETE /api/comments/{id}         → Delete a comment
+ *
+ * Who is commenting or deleting always comes from the token, never the URL.
  */
 @RestController
 @RequestMapping("/api/comments")
@@ -33,14 +37,15 @@ public class CommentController {
      *
      * Request body:
      * {
-     *   "userId": 1,
      *   "postId": 5,
      *   "content": "Great explanation!",
      *   "anonymous": false
      * }
      */
     @PostMapping
-    public ResponseEntity<?> addComment(@RequestBody CreateCommentRequest request) {
+    public ResponseEntity<?> addComment(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @RequestBody CreateCommentRequest request) {
         try {
 
             // Create Comment entity from request
@@ -49,14 +54,15 @@ public class CommentController {
             comment.setAnonymous(request.isAnonymous());
 
             // Save via service
+            // Author comes from the token, not from the request body.
             Comment savedComment = commentService.addComment(
-                    request.getUserId(),
+                    me.id(),
                     request.getPostId(),
                     comment
             );
 
             // Convert to response (the author is obviously the viewer here)
-            CommentResponse response = CommentResponse.fromComment(savedComment, request.getUserId());
+            CommentResponse response = CommentResponse.fromComment(savedComment, me.id());
 
             return ResponseEntity.ok(response);
 
@@ -75,7 +81,7 @@ public class CommentController {
     @GetMapping("/post/{postId}")
     public ResponseEntity<?> getComments(
             @PathVariable Long postId,
-            @RequestParam(required = false) Long viewerId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
             List<Comment> comments = commentService.getCommentsByPost(postId);
@@ -83,7 +89,7 @@ public class CommentController {
             // Convert to responses. viewerId decides which comments show a
             // Delete button; it never affects what the server actually permits.
             List<CommentResponse> response = comments.stream()
-                    .map(comment -> CommentResponse.fromComment(comment, viewerId))
+                    .map(comment -> CommentResponse.fromComment(comment, me.id()))
                     .collect(Collectors.toList());
 
             return ResponseEntity.ok(response);
@@ -115,15 +121,15 @@ public class CommentController {
     /*
      * DELETE COMMENT
      *
-     * URL: DELETE /api/comments/5?userId=1
+     * URL: DELETE /api/comments/5
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteComment(
             @PathVariable Long id,
-            @RequestParam Long userId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
-            commentService.deleteComment(id, userId);
+            commentService.deleteComment(id, me.id());
             return ResponseEntity.ok("Comment deleted successfully");
 
         } catch (RuntimeException e) {

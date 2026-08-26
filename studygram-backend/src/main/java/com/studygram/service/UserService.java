@@ -51,8 +51,12 @@ public class UserService {
      * BCryptPasswordEncoder - hashes passwords for security
      * Never store plain text passwords! "password123" becomes
      * "$2a$10$N9qo8uLOickgx2ZMRZoMy..." (impossible to reverse)
+     *
+     * Injected rather than constructed with `new`, so the whole application
+     * shares the one instance configured in SecurityConfig.
      */
-    private BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
 
     /*
      * SIGNUP - Register a new user

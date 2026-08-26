@@ -5,8 +5,10 @@ import com.studygram.dto.PostResponse;
 import com.studygram.entity.Post;
 import com.studygram.service.CommentService;
 import com.studygram.service.PostService;
+import com.studygram.security.AuthenticatedUser;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
  *   GET    /api/posts/user/{id} → Get posts by user
  *   POST   /api/posts/{id}/helpful → Mark post as helpful
  *   DELETE /api/posts/{id}      → Delete a post
+ *
+ * No endpoint takes the caller's id. That always comes from the JWT.
  */
 @RestController
 @RequestMapping("/api/posts")
@@ -40,13 +44,15 @@ public class PostController {
      *
      * Request body:
      * {
-     *   "userId": 1,
      *   "content": "I learned something today!",
+     *   "topics": ["Programming"],
      *   "anonymous": false
      * }
      */
     @PostMapping
-    public ResponseEntity<?> createPost(@RequestBody CreatePostRequest request) {
+    public ResponseEntity<?> createPost(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @RequestBody CreatePostRequest request) {
         try {
 
             // Create new Post entity from request
@@ -56,10 +62,11 @@ public class PostController {
             post.setTopics(request.getTopics());
 
             // Save via service (which validates content and topics)
-            Post savedPost = postService.createPost(request.getUserId(), post);
+            // The author is whoever the token says it is, never what the body claims.
+            Post savedPost = postService.createPost(me.id(), post);
 
             // Convert to response (hides user info if anonymous)
-            PostResponse response = PostResponse.fromPost(savedPost, 0, request.getUserId());
+            PostResponse response = PostResponse.fromPost(savedPost, 0, me.id());
 
             return ResponseEntity.ok(response);
 
@@ -76,33 +83,33 @@ public class PostController {
      * Returns list of posts (anonymous posts show "Anonymous" as author)
      */
     @GetMapping
-    public ResponseEntity<?> getFeed(@RequestParam(required = false) Long viewerId) {
+    public ResponseEntity<?> getFeed(@AuthenticationPrincipal AuthenticatedUser me) {
 
         List<Post> posts = postService.getFeed();
 
         // toResponses() attaches comment counts and helpful marks in a fixed
         // number of queries, regardless of how many posts came back.
-        return ResponseEntity.ok(postService.toResponses(posts, viewerId));
+        return ResponseEntity.ok(postService.toResponses(posts, me.id()));
     }
 
     /*
      * GET PERSONALIZED FEED - Only posts matching user's interests
      *
-     * URL: GET /api/posts/feed/1
+     * URL: GET /api/posts/feed
      *
      * Returns posts where topic matches user's interests
      * Example:
      *   User interests: "math,science"
      *   Returns: only posts with topic "math" or "science"
      */
-    @GetMapping("/feed/{userId}")
-    public ResponseEntity<?> getPersonalizedFeed(@PathVariable Long userId) {
+    @GetMapping("/feed")
+    public ResponseEntity<?> getPersonalizedFeed(@AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
-            List<Post> posts = postService.getPersonalizedFeed(userId);
+            // Your personalized feed is yours. There is no id in the URL to change.
+            List<Post> posts = postService.getPersonalizedFeed(me.id());
 
-            // The requesting user is also the viewer here
-            return ResponseEntity.ok(postService.toResponses(posts, userId));
+            return ResponseEntity.ok(postService.toResponses(posts, me.id()));
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -117,11 +124,11 @@ public class PostController {
     @GetMapping("/{id}")
     public ResponseEntity<?> getPost(
             @PathVariable Long id,
-            @RequestParam(required = false) Long viewerId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
             Post post = postService.getPostById(id);
-            List<PostResponse> response = postService.toResponses(List.of(post), viewerId);
+            List<PostResponse> response = postService.toResponses(List.of(post), me.id());
 
             return ResponseEntity.ok(response.get(0));
 
@@ -141,12 +148,17 @@ public class PostController {
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getPostsByUser(
             @PathVariable Long userId,
-            @RequestParam(required = false) Long viewerId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
+            /*
+             * userId here says WHOSE posts to show - it is a lookup key, not a
+             * claim about who is asking. Who is asking comes from the token,
+             * and is what decides which posts show a Delete button.
+             */
             List<Post> posts = postService.getPostsByUser(userId);
 
-            return ResponseEntity.ok(postService.toResponses(posts, viewerId));
+            return ResponseEntity.ok(postService.toResponses(posts, me.id()));
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
@@ -156,7 +168,7 @@ public class PostController {
     /*
      * TOGGLE HELPFUL
      *
-     * URL: POST /api/posts/5/helpful?userId=1
+     * URL: POST /api/posts/5/helpful
      *
      * Toggles helpful: if not marked → mark, if marked → unmark
      * Returns: { "marked": true/false, "helpfulCount": 5, "helpfulUsers": ["user1", "user2"] }
@@ -164,10 +176,10 @@ public class PostController {
     @PostMapping("/{id}/helpful")
     public ResponseEntity<?> toggleHelpful(
             @PathVariable Long id,
-            @RequestParam Long userId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
-            boolean isMarked = postService.toggleHelpful(id, userId);
+            boolean isMarked = postService.toggleHelpful(id, me.id());
             Post post = postService.getPostById(id);
             java.util.List<String> helpfulUsers = postService.getHelpfulUsers(id);
 
@@ -204,18 +216,24 @@ public class PostController {
     /*
      * DELETE POST
      *
-     * URL: DELETE /api/posts/5?userId=1
+     * URL: DELETE /api/posts/5
      *
-     * The userId query param tells us who is trying to delete
-     * Only the owner can delete their post
+     * Who is deleting comes from the token. Only the owner can delete a post,
+     * and now the server can actually tell who the owner is.
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePost(
             @PathVariable Long id,
-            @RequestParam Long userId) {
+            @AuthenticationPrincipal AuthenticatedUser me) {
         try {
 
-            postService.deletePost(id, userId);
+            /*
+             * This used to be DELETE /api/posts/5?userId=1 - and the server
+             * believed the number. Changing it to somebody else's id let you
+             * delete their posts. The id now comes from the verified token, so
+             * the ownership check inside deletePost() finally means something.
+             */
+            postService.deletePost(id, me.id());
             return ResponseEntity.ok("Post deleted successfully");
 
         } catch (RuntimeException e) {

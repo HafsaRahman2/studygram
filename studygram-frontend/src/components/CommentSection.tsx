@@ -35,7 +35,7 @@ export function CommentSection({
     let cancelled = false
 
     commentsApi
-      .forPost(postId, currentUser.id)
+      .forPost(postId)
       .then((list) => {
         if (!cancelled) setComments(list)
       })
@@ -49,7 +49,7 @@ export function CommentSection({
     return () => {
       cancelled = true
     }
-  }, [postId, currentUser.id])
+  }, [postId])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -62,7 +62,6 @@ export function CommentSection({
 
     try {
       const created = await commentsApi.add({
-        userId: currentUser.id,
         postId,
         content,
         anonymous: false, // comments are always attributed, for accountability
@@ -89,7 +88,7 @@ export function CommentSection({
     onCountChange(-1)
 
     try {
-      await commentsApi.remove(commentId, currentUser.id)
+      await commentsApi.remove(commentId)
     } catch (err) {
       setComments(previous)
       onCountChange(+1)

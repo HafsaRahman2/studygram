@@ -47,10 +47,7 @@ export function Profile({
         <ProfileView currentUser={currentUser} onEdit={() => setEditing(true)} />
       )}
 
-      <ChangePassword
-        userId={currentUser.id}
-        onSuccess={() => setSuccess('Password changed.')}
-      />
+      <ChangePassword onSuccess={() => setSuccess('Password changed.')} />
 
       {currentUser.githubUsername && (
         <GitHubCard username={currentUser.githubUsername} />
@@ -203,7 +200,7 @@ function ProfileForm({
     setSaving(true)
 
     try {
-      const updated = await profileApi.update(currentUser.id, {
+      const updated = await profileApi.update({
         name,
         education: education || undefined,
         // Store interests back as the comma-separated string the API expects
@@ -347,13 +344,7 @@ function ProfileForm({
 
 /* -------------------------------------------------------- ChangePassword */
 
-function ChangePassword({
-  userId,
-  onSuccess,
-}: {
-  userId: number
-  onSuccess: () => void
-}) {
+function ChangePassword({ onSuccess }: { onSuccess: () => void }) {
   const [open, setOpen] = useState(false)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
@@ -378,7 +369,7 @@ function ChangePassword({
     setSaving(true)
 
     try {
-      await auth.changePassword(userId, current, next)
+      await auth.changePassword(current, next)
       setCurrent('')
       setNext('')
       setConfirm('')
@@ -546,7 +537,7 @@ function MyPosts({ currentUser }: { currentUser: User }) {
     let cancelled = false
 
     postsApi
-      .byUser(currentUser.id, currentUser.id)
+      .byUser(currentUser.id)
       .then((list) => {
         if (!cancelled) setPosts(list)
       })
