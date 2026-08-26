@@ -1,0 +1,20 @@
+# Files that must never enter the build context.
+#
+# Everything not listed here gets uploaded to the Docker daemon before the build
+# starts, so this keeps builds fast AND keeps secrets out of images.
+
+# Secrets - the single most important line in this file.
+.env
+.env.*
+!.env.example
+
+# Build output - the image builds its own; copying a local one in would be
+# slower and could ship a stale jar.
+target/
+
+# Local tooling
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.log

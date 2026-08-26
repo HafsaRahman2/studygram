@@ -19,6 +19,7 @@ makes you stop every so often.
 - [Architecture](#architecture)
 - [Data model](#data-model)
 - [Running it locally](#running-it-locally)
+- [Deploying it](#deploying-it)
 - [API reference](#api-reference)
 - [Authentication](#authentication)
 - [Testing](#testing)
@@ -230,6 +231,110 @@ PostgreSQL stopped.
 There is no mail server, so the reset token is written to the **backend console** instead of being
 emailed — the same pattern Django and Rails use in development. Request a reset in the UI, copy the
 token from the terminal running the backend, and paste it into step 2.
+
+---
+
+## Deploying it
+
+Three pieces, on three free tiers: a database, the API, and the static frontend.
+
+**Order matters.** The frontend must be built against a backend URL that already exists, and the
+backend must be told which frontend origin to accept. So: database → backend → frontend → update the
+backend's CORS setting.
+
+### 1. Database — Neon
+
+Create a free Postgres project at [neon.tech](https://neon.tech) and copy the connection string. It
+looks like:
+
+```
+postgresql://user:password@ep-xxx-123.us-east-2.aws.neon.tech/studygram?sslmode=require
+```
+
+Spring needs that split into three values, and the URL prefixed with `jdbc:`:
+
+```bash
+DB_URL=jdbc:postgresql://ep-xxx-123.us-east-2.aws.neon.tech/studygram?sslmode=require
+DB_USERNAME=user
+DB_PASSWORD=password
+```
+
+> **Why Neon and not the hosting platform's own database?** Render's free Postgres is deleted after
+> 30 days. A link on a CV that works for a month and then breaks is worse than no link.
+
+Tables are created on first boot by `ddl-auto=update`, and `CommunitySeeder` fills in the 64 topics.
+Nothing to run by hand.
+
+### 2. Backend — Render
+
+New → **Web Service**, connect the GitHub repo, then:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `studygram-backend` |
+| Runtime | Docker *(it will find the `Dockerfile`)* |
+| Instance type | Free |
+
+Environment variables:
+
+```bash
+DB_URL=jdbc:postgresql://...        # from step 1
+DB_USERNAME=...
+DB_PASSWORD=...
+STUDYGRAM_JWT_SECRET=...            # generate a NEW one: openssl rand -base64 32
+GROQ_API_KEY=...                    # optional; AI assistant is disabled without it
+CORS_ORIGINS=http://localhost:5173  # replaced in step 4
+```
+
+**Generate a fresh JWT secret for production.** Do not reuse the development one — anyone who has it
+can forge a token for any account.
+
+`PORT` is set by Render automatically, and `application.properties` reads it.
+
+First build takes a few minutes. Check it with `curl https://your-service.onrender.com/api/hello`.
+
+### 3. Frontend — Vercel
+
+Import the same repo, then:
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `studygram-frontend` |
+| Framework | Vite *(auto-detected)* |
+
+One environment variable:
+
+```bash
+VITE_API_URL=https://your-service.onrender.com
+```
+
+> **Vite inlines environment variables at build time, not runtime.** Changing `VITE_API_URL` later
+> means triggering a rebuild — editing it in the dashboard alone does nothing to the already-built
+> files.
+
+### 4. Close the loop
+
+Take the Vercel URL, put it in Render's `CORS_ORIGINS`, and redeploy the backend:
+
+```bash
+CORS_ORIGINS=https://studygram.vercel.app
+```
+
+Without this the browser blocks every request, because the API only accepts origins it has been told
+about. This is the step that is easy to forget, and the symptom — everything failing with no useful
+error — looks far worse than the one-line cause.
+
+### The cold start
+
+The free tier stops the container after about 15 minutes without traffic, so the next visitor waits
+30–60 seconds for a JVM to boot.
+
+That is why the app pings `/api/hello` on load and shows a banner explaining the wait
+(`useServerWakeup.ts`). The delay is unavoidable on a free tier; being told about it is the
+difference between someone waiting and someone assuming the site is broken.
+
+If it matters enough — a link on a CV probably qualifies — Render's cheapest paid instance removes
+the sleep entirely.
 
 ---
 

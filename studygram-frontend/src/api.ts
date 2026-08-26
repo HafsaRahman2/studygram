@@ -228,6 +228,20 @@ async function request<T>(
  * profile to view), never at who is doing the acting.
  */
 
+/* ---------------------------------------------------------------- health */
+
+/*
+ * A cheap public endpoint, used to check the server is awake.
+ *
+ * Free hosting tiers stop the container after a period with no traffic, so the
+ * first request after a quiet spell has to start a JVM before it can answer -
+ * often 30 to 60 seconds. Without something on screen explaining that, a
+ * visitor sees a blank page and leaves before it ever loads.
+ */
+export function ping() {
+  return request<string>('/api/hello')
+}
+
 /* ------------------------------------------------------------------ auth */
 
 export const auth = {

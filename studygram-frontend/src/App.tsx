@@ -5,6 +5,7 @@ import { setUnauthorizedHandler } from './api'
 import { useAuth } from './hooks/useAuth'
 import { useBreak } from './hooks/useBreak'
 import { usePendingBuddies } from './hooks/usePendingBuddies'
+import { useServerWakeup } from './hooks/useServerWakeup'
 import type { Page } from './types'
 
 import { Header } from './components/Header'
@@ -57,6 +58,12 @@ export default function App() {
 
   /* Powers the badge on the Buddies nav link. */
   const pendingBuddies = usePendingBuddies(user?.id ?? null)
+
+  /*
+   * Free hosting sleeps when idle, so the first request can take a minute.
+   * This says so, rather than leaving a visitor looking at nothing.
+   */
+  const { waking, failed } = useServerWakeup()
   const [breakOpen, setBreakOpen] = useState(false)
 
   /*
@@ -187,6 +194,27 @@ export default function App() {
         }
       />
 
+      {waking && (
+        <div className="server-banner" role="status">
+          <span className="server-spinner" aria-hidden="true" />
+          <span>
+            <strong>Waking up the server.</strong> This demo is on a free tier
+            that sleeps when nobody is using it — it takes about 30 seconds the
+            first time, then it is fast.
+          </span>
+        </div>
+      )}
+
+      {failed && (
+        <div className="server-banner failed" role="alert">
+          <span aria-hidden="true">⚠️</span>
+          <span>
+            <strong>Cannot reach the server.</strong> The backend may be
+            starting up or temporarily down. Try refreshing in a moment.
+          </span>
+        </div>
+      )}
+
       {/* The break screen covers everything. It is not a page you navigate to,
           because a break you can click away from is not really a break. */}
       {breakOpen && breakState.status?.state === 'ACTIVE' && (
@@ -207,7 +235,7 @@ export default function App() {
         <p>
           StudyGram — React + TypeScript on Spring Boot and PostgreSQL.{' '}
           <a
-            href="https://github.com/hafsarahman"
+            href="https://github.com/hafsarahman/studygram"
             target="_blank"
             rel="noreferrer"
             className="link"

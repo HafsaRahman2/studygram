@@ -1594,6 +1594,43 @@ textarea {
   flex: 1;
 }
 
+/* --- Server wake-up banner --- */
+
+/*
+ * Sits under the sticky header, full width, so it is impossible to miss while
+ * the backend boots. Deliberately informational rather than alarming - being
+ * asleep is not an error.
+ */
+.server-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  background: var(--info-soft);
+  border-bottom: 1px solid var(--info-border);
+  color: var(--info-text);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.server-banner.failed {
+  background: var(--danger-soft);
+  border-bottom-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.server-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 /* --- Study buddies --- */
 
 .page-head {
