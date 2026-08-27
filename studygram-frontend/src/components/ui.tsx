@@ -180,6 +180,8 @@ export function TopicChips({
  * that owns it.
  */
 export function PasswordInput({
+  id,
+  label,
   value,
   onChange,
   placeholder,
@@ -188,6 +190,21 @@ export function PasswordInput({
   visible,
   onToggleVisible,
 }: {
+  /*
+   * REQUIRED, and the reason this prop exists.
+   *
+   * Callers render <label htmlFor="login-password"> beside this component, but
+   * the input inside had no id - so the label pointed at nothing. Visually it
+   * looked correct; to a screen reader the field had NO NAME at all, announced
+   * only as "protected edit text".
+   *
+   * On the password reset screen that meant two unnamed password boxes with no
+   * way to tell "new password" from "confirm password". A label that is not
+   * programmatically associated is decoration.
+   */
+  id: string
+  /* Fallback name, in case a caller ever renders this without a visible label. */
+  label?: string
   value: string
   onChange: (value: string) => void
   placeholder?: string
@@ -199,6 +216,8 @@ export function PasswordInput({
   return (
     <div className="password-input">
       <input
+        id={id}
+        aria-label={label}
         type={visible ? 'text' : 'password'}
         placeholder={placeholder}
         value={value}

@@ -73,6 +73,7 @@ export function Login({
         <div className="field">
           <label htmlFor="login-password">Password</label>
           <PasswordInput
+            id="login-password"
             value={password}
             onChange={setPassword}
             placeholder="Your password"
@@ -237,6 +238,7 @@ export function Signup({
         <div className="field">
           <label htmlFor="signup-password">Password</label>
           <PasswordInput
+            id="signup-password"
             value={password}
             onChange={setPassword}
             placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
@@ -255,6 +257,7 @@ export function Signup({
         <div className="field">
           <label htmlFor="signup-confirm">Confirm password</label>
           <PasswordInput
+            id="signup-confirm"
             value={confirm}
             onChange={setConfirm}
             placeholder="Type it again"
@@ -432,6 +435,7 @@ export function ForgotPassword({ onNavigate }: { onNavigate: (page: Page) => voi
           <div className="field">
             <label htmlFor="reset-password">New password</label>
             <PasswordInput
+              id="reset-password"
               value={password}
               onChange={setPassword}
               placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
@@ -445,6 +449,7 @@ export function ForgotPassword({ onNavigate }: { onNavigate: (page: Page) => voi
           <div className="field">
             <label htmlFor="reset-confirm">Confirm new password</label>
             <PasswordInput
+              id="reset-confirm"
               value={confirm}
               onChange={setConfirm}
               placeholder="Type it again"

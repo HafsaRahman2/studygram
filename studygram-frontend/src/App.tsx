@@ -38,6 +38,20 @@ import { Profile } from './components/Profile'
  * and the browser Back button does not move between pages. Adding react-router
  * would fix both, and is the natural next step.
  */
+/*
+ * The heading for each page, used for the visually hidden h1 and nothing else.
+ */
+const PAGE_TITLES: Record<Page, string> = {
+  home: 'StudyGram',
+  login: 'Log in',
+  signup: 'Create your account',
+  'forgot-password': 'Reset your password',
+  feed: 'Your feed',
+  buddies: 'Your crew',
+  ai: 'Study assistant',
+  profile: 'Your profile',
+}
+
 export default function App() {
   const { user, login, logout, updateUser } = useAuth()
 
@@ -246,6 +260,19 @@ export default function App() {
         tabIndex={-1}
         className={`main ${page === 'home' ? '' : 'narrow'}`}
       >
+        {/*
+          EVERY PAGE NEEDS EXACTLY ONE h1.
+
+          Screen reader users navigate by heading - jumping between them is the
+          equivalent of glancing down a page. A page with no h1 gives them no
+          anchor, and the Feed had no heading at all.
+
+          Rendered visually hidden on pages whose design has no visible title,
+          so the document outline is correct without changing the look. The
+          landing page has a real <h1>, so it is skipped here.
+        */}
+        {page !== 'home' && <h1 className="sr-only">{PAGE_TITLES[page]}</h1>}
+
         {renderPage()}
       </main>
 

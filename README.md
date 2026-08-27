@@ -503,6 +503,18 @@ Built in rather than bolted on, because retrofitting it is far harder.
 | **Focus rings** | `:focus-visible`, so keyboard users get a ring and mouse users do not |
 | **Semantics** | Real `<main>`, `<nav>`, `<article>`, `<header>`; `role="tab"`/`aria-selected` on tabs; `aria-expanded` on menus |
 | **Decorative emoji** | `aria-hidden`, so a screen reader does not read "graduation cap" before every AI answer |
+| **Labels** | Every input is programmatically associated with its label, verified by a script rather than by eye |
+| **One `h1` per page** | Visually hidden where the design has no visible title, so heading navigation still works |
+
+Auditing found real bugs that looked fine on screen:
+
+- **Every password field had an orphaned label.** `<label htmlFor="login-password">` pointed at an id
+  that did not exist, because `PasswordInput` rendered its input without one. Sighted users saw a
+  labelled field; a screen reader announced an unnamed "protected edit text". On the reset screen
+  that meant two indistinguishable password boxes.
+- **The break timer button announced only "4:57"** — a number with no indication of what it counted
+  or what pressing it would do.
+- **The feed had no heading at all**, so heading navigation had nothing to land on.
 
 Two decisions worth explaining:
 

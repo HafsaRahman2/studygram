@@ -470,7 +470,12 @@ function TopicMenu({
   /* When a topic is showing, the control becomes a removable chip instead. */
   if (active) {
     return (
-      <button className="tab filter-pill" onClick={onClear} title="Show all posts again">
+      <button
+        className="tab filter-pill"
+        onClick={onClear}
+        aria-label={`Showing ${active} only. Clear this filter.`}
+        title="Show all posts again"
+      >
         {active} <span aria-hidden="true">×</span>
       </button>
     )

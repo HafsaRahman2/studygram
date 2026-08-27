@@ -363,7 +363,16 @@ export function BreakButton({
 
   if (status.state === 'ACTIVE') {
     return (
-      <button className="break-btn active" onClick={onOpen}>
+      <button
+        className="break-btn active"
+        onClick={onOpen}
+        /*
+         * Without this a screen reader announces the button as just "4:57" -
+         * a number with no indication of what it counts or what pressing it
+         * does. The emoji beside it is aria-hidden, so it adds nothing.
+         */
+        aria-label={`Break in progress, ${Math.ceil(remaining / 60)} minutes left. Open break screen.`}
+      >
         <span aria-hidden="true">🫧</span>
         {formatClock(remaining)}
       </button>
@@ -376,6 +385,7 @@ export function BreakButton({
       <button
         className="break-btn cooling"
         disabled
+        aria-label={`Next break available in ${minutes} minutes`}
         title={`You have taken ${status.breaksToday} break${status.breaksToday === 1 ? '' : 's'} today`}
       >
         <span aria-hidden="true">⏳</span>
