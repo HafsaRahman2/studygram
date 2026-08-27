@@ -235,7 +235,7 @@ export default function App() {
         <p>
           StudyGram — React + TypeScript on Spring Boot and PostgreSQL.{' '}
           <a
-            href="https://github.com/hafsarahman/studygram"
+            href="https://github.com/HafsaRahman2/studygram"
             target="_blank"
             rel="noreferrer"
             className="link"
