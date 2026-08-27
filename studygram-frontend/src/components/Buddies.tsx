@@ -87,9 +87,9 @@ export function Buddies({
   return (
     <div className="buddies">
       <header className="page-head">
-        <h2>Study buddies</h2>
+        <h2>Your crew</h2>
         <p className="muted">
-          Connect with people learning the same things as you.
+          The people learning the same things as you.
         </p>
       </header>
 
@@ -100,7 +100,7 @@ export function Buddies({
           className={`tab ${tab === 'buddies' ? 'active' : ''}`}
           onClick={() => setTab('buddies')}
         >
-          Your buddies
+          Your crew
           {myBuddies.length > 0 && <span className="tab-count">{myBuddies.length}</span>}
         </button>
 
@@ -171,14 +171,14 @@ function BuddyList({
     return (
       <EmptyState
         icon="🤝"
-        title="No study buddies yet"
+        title="Your crew is empty"
         action={
           <button className="btn" onClick={onFindPeople}>
             Find people
           </button>
         }
       >
-        Buddies are people learning the same things as you.
+        Your crew is the people learning the same things as you.
       </EmptyState>
     )
   }
@@ -525,7 +525,7 @@ function RelationshipAction({
 }) {
   switch (result.relationship) {
     case 'BUDDIES':
-      return <span className="pill pill-success">Buddies</span>
+      return <span className="pill pill-success">In your crew</span>
 
     case 'REQUEST_SENT':
       return <span className="pill">Pending</span>
@@ -548,7 +548,7 @@ function RelationshipAction({
     default:
       return (
         <button className="btn btn-small btn-secondary" onClick={onAdd}>
-          Add buddy
+          Add to crew
         </button>
       )
   }

@@ -10,8 +10,8 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const features = [
     {
       icon: '🎯',
-      title: 'A feed with no noise',
-      body: 'Every post is tagged by topic, and your feed only shows the subjects you actually study.',
+      title: 'Ask, and get answered',
+      body: 'Ask a question and get an instant AI answer, while real people answer it properly.',
     },
     {
       icon: '🕶️',
@@ -25,8 +25,8 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
     },
     {
       icon: '🤝',
-      title: 'Find study buddies',
-      body: 'Connect with people learning the same things and follow what they are working on.',
+      title: 'Find your crew',
+      body: 'Connect with people learning the same things, and follow what they are working on.',
     },
   ]
 

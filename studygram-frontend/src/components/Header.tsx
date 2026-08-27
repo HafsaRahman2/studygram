@@ -54,7 +54,7 @@ export function Header({
   const links: Array<{ page: Page; label: string; badge?: number }> = currentUser
     ? [
         { page: 'feed', label: 'Feed' },
-        { page: 'buddies', label: 'Buddies', badge: pendingBuddyCount },
+        { page: 'buddies', label: 'Crew', badge: pendingBuddyCount },
         { page: 'ai', label: 'Assistant' },
       ]
     : []

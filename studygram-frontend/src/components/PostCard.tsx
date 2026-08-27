@@ -26,9 +26,20 @@ export function PostCard({
   onDelete: (postId: number) => void
   onTopicClick?: (topic: string) => void
 }) {
-  const [showComments, setShowComments] = useState(false)
+  /*
+   * A question opens its answers by default when it already has one.
+   *
+   * An unanswered question is a request for help and its thread is empty; an
+   * answered one is the thing people came to read. Making them click to reach
+   * the answer would hide the whole point of the post.
+   */
+  const isQuestion = post.postType === 'QUESTION'
+  const [showComments, setShowComments] = useState(isQuestion && post.commentCount > 0)
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  /* What replies are called here. Same number, different meaning. */
+  const replyWord = isQuestion ? 'Answers' : 'Comments'
 
   /*
    * Has this user already marked the post helpful?
@@ -74,6 +85,20 @@ export function PostCard({
     }
   }
 
+  async function handleToggleResolved() {
+    if (busy) return
+    setBusy(true)
+
+    try {
+      const updated = await postsApi.toggleResolved(post.id)
+      onUpdate({ ...post, resolved: updated.resolved })
+    } catch {
+      /* Leave the state alone; the button simply did not take. */
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function handleDelete() {
     setBusy(true)
     try {
@@ -86,7 +111,20 @@ export function PostCard({
   }
 
   return (
-    <article className="post-card">
+    <article className={`post-card ${isQuestion ? 'is-question' : ''}`}>
+      {isQuestion && (
+        <div className="post-kind">
+          <span className="kind-badge">
+            <span aria-hidden="true">❓</span> Question
+          </span>
+          {post.resolved && (
+            <span className="kind-badge answered">
+              <span aria-hidden="true">✓</span> Answered
+            </span>
+          )}
+        </div>
+      )}
+
       <header className="post-head">
         <Avatar name={post.anonymous ? 'Anonymous' : post.authorName} />
 
@@ -121,7 +159,7 @@ export function PostCard({
           aria-pressed={markedHelpful}
         >
           <span aria-hidden="true">{markedHelpful ? '★' : '☆'}</span>
-          Helpful
+          Lifesaver
           {post.helpfulCount > 0 && <span className="count">{post.helpfulCount}</span>}
         </button>
 
@@ -131,9 +169,27 @@ export function PostCard({
           aria-expanded={showComments}
         >
           <span aria-hidden="true">💬</span>
-          Comments
+          {replyWord}
           {post.commentCount > 0 && <span className="count">{post.commentCount}</span>}
         </button>
+
+        {/* Only the asker sees this - they are the one who knows if it helped. */}
+        {isQuestion && post.ownPost && (
+          <button
+            className={`action-btn ${post.resolved ? 'active' : ''}`}
+            onClick={handleToggleResolved}
+            disabled={busy}
+            aria-pressed={post.resolved}
+            title={
+              post.resolved
+                ? 'Mark this as still needing an answer'
+                : 'Mark this question answered'
+            }
+          >
+            <span aria-hidden="true">✓</span>
+            {post.resolved ? 'Answered' : 'Mark answered'}
+          </button>
+        )}
 
         {/* `ownPost` is a yes/no answer about the viewer. It works for
             anonymous posts too, without revealing who wrote anyone else's. */}
@@ -162,6 +218,7 @@ export function PostCard({
         <CommentSection
           postId={post.id}
           currentUser={currentUser}
+          isQuestion={isQuestion}
           onCountChange={(delta) =>
             onUpdate({ ...post, commentCount: Math.max(0, post.commentCount + delta) })
           }

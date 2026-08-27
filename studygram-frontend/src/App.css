@@ -1245,6 +1245,177 @@ textarea {
   color: var(--text-muted);
 }
 
+/* --- Questions --- */
+
+/*
+ * A question is visually distinct from a share, because they ask different
+ * things of the reader: one wants help, the other is offering it.
+ */
+.post-card.is-question {
+  border-left: 3px solid var(--brand);
+}
+
+.post-kind {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.kind-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kind-badge.answered {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+/* Ask-or-share, chosen before anything else in the composer. */
+.type-switch {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.type-option:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.type-option.active {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-text);
+}
+
+.composer-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+/* --- AI answers --- */
+
+/*
+ * An AI answer is deliberately marked, never blended in.
+ *
+ * A reader weighs a machine's answer differently from a person's, and they can
+ * only do that if they can tell which is which at a glance.
+ */
+.comment.ai .comment-body {
+  background: color-mix(in srgb, var(--brand) 8%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+}
+
+.ai-badge-avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  font-size: 0.9rem;
+  flex: 0 0 auto;
+}
+
+.ai-tag {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* --- Rendered markdown (AI answers) --- */
+
+.markdown > * + * {
+  margin-top: 0.6rem;
+}
+
+.markdown .md-heading {
+  font-size: 0.92rem;
+  font-weight: 650;
+  margin-top: 0.9rem;
+}
+
+.markdown p {
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.2rem;
+  font-size: 0.88rem;
+  line-height: 1.65;
+}
+
+.markdown li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown code {
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+}
+
+.markdown pre {
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  /* Long lines scroll inside the block instead of stretching the whole card. */
+  overflow-x: auto;
+}
+
+.markdown pre code {
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
 /* --- Comments --- */
 
 .comments {

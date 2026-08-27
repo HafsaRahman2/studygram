@@ -20,6 +20,7 @@ import type {
   Comment,
   Community,
   Post,
+  PostType,
   User,
   UserSearchResult,
 } from './types'
@@ -325,8 +326,29 @@ export const posts = {
     return request<Post[]>(`/api/posts/user/${userId}`)
   },
 
-  create(data: { content: string; topics: string[]; anonymous: boolean }) {
+  create(data: {
+    content: string
+    topics: string[]
+    anonymous: boolean
+    postType: PostType
+  }) {
     return request<Post>('/api/posts', { method: 'POST', body: data })
+  },
+
+  /*
+   * Ask the AI to answer a question.
+   *
+   * Separate from creating the post because generation takes seconds - the
+   * post appears instantly and the answer arrives after, so the UI can show
+   * that it is thinking rather than freezing the whole compose step.
+   */
+  aiAnswer(postId: number) {
+    return request<Comment>(`/api/posts/${postId}/ai-answer`, { method: 'POST' })
+  },
+
+  /* Mark a question answered, or un-mark it. Asker only. */
+  toggleResolved(postId: number) {
+    return request<Post>(`/api/posts/${postId}/resolve`, { method: 'POST' })
   },
 
   toggleHelpful(postId: number) {

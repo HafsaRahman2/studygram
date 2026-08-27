@@ -63,7 +63,23 @@ export interface Post {
   commentCount: number
   topics: string[]
   helpfulUsers: string[]
+
+  /* 'QUESTION' or 'SHARE' - decides how the card is rendered. */
+  postType: PostType
+  /* Whether the asker has marked a question answered. */
+  resolved: boolean
+  /* True once the AI has replied, so the UI never offers it twice. */
+  hasAiAnswer: boolean
 }
+
+/*
+ * The two kinds of post.
+ *
+ * A QUESTION has answers and can be resolved; a SHARE is someone posting
+ * something they learned. They live in the same feed but read differently -
+ * "3 answers" and "3 comments" mean different things to a reader.
+ */
+export type PostType = 'QUESTION' | 'SHARE'
 
 /*
  * A comment on a post.
@@ -77,6 +93,8 @@ export interface Comment {
   authorUsername: string | null
   canDelete: boolean
   anonymous: boolean
+  /* True when the AI wrote this rather than a person. Always shown. */
+  aiGenerated: boolean
   createdAt: string
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { comments as commentsApi } from '../api'
 import type { Comment, User } from '../types'
 import { timeAgo } from '../utils/format'
+import { renderMarkdown } from '../utils/markdown'
 import { Avatar, Message, Spinner } from './ui'
 
 /*
@@ -18,10 +19,13 @@ import { Avatar, Message, Spinner } from './ui'
 export function CommentSection({
   postId,
   currentUser,
+  isQuestion = false,
   onCountChange,
 }: {
   postId: number
   currentUser: User
+  /* Changes the wording: a question gets answers, a share gets comments. */
+  isQuestion?: boolean
   onCountChange: (delta: number) => void
 }) {
   const [comments, setComments] = useState<Comment[]>([])
@@ -103,13 +107,13 @@ export function CommentSection({
         <input
           type="text"
           value={draft}
-          placeholder="Add a comment..."
+          placeholder={isQuestion ? 'Write an answer...' : 'Add a comment...'}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={500}
-          aria-label="Write a comment"
+          aria-label={isQuestion ? 'Write an answer' : 'Write a comment'}
         />
         <button type="submit" className="btn btn-small" disabled={!draft.trim() || submitting}>
-          {submitting ? 'Posting...' : 'Post'}
+          {submitting ? 'Posting...' : isQuestion ? 'Answer' : 'Post'}
         </button>
       </form>
 
@@ -120,23 +124,54 @@ export function CommentSection({
       {loading && <Spinner label="Loading comments" />}
 
       {!loading && comments.length === 0 && (
-        <p className="comments-empty">No comments yet. Start the conversation.</p>
+        <p className="comments-empty">
+          {isQuestion
+            ? 'No answers yet. Be the first to help.'
+            : 'No comments yet. Start the conversation.'}
+        </p>
       )}
 
       <ul className="comment-list">
         {comments.map((comment) => (
-          <li key={comment.id} className="comment">
-            <Avatar name={comment.authorName} size={32} />
+          <li key={comment.id} className={`comment ${comment.aiGenerated ? 'ai' : ''}`}>
+            {comment.aiGenerated ? (
+              <div className="ai-badge-avatar" aria-hidden="true">
+                🎓
+              </div>
+            ) : (
+              <Avatar name={comment.authorName} size={32} />
+            )}
 
             <div className="comment-body">
               <div className="comment-head">
                 <span className="comment-author">
-                  {comment.anonymous ? 'Anonymous' : `@${comment.authorUsername}`}
+                  {comment.aiGenerated
+                    ? 'StudyGram AI'
+                    : comment.anonymous
+                      ? 'Anonymous'
+                      : `@${comment.authorUsername}`}
                 </span>
+
+                {/*
+                  Never let an AI answer be mistaken for a person's. A reader
+                  weighs the two differently, and blurring that would be the
+                  most dishonest thing this app could do.
+                */}
+                {comment.aiGenerated && <span className="ai-tag">AI generated</span>}
+
                 <span className="comment-time">{timeAgo(comment.createdAt)}</span>
               </div>
 
-              <p className="comment-text">{comment.content}</p>
+              {/*
+                AI answers arrive as Markdown. Rendered through our own
+                converter, which emits React elements rather than HTML - so
+                nothing a model writes can inject anything into the page.
+              */}
+              {comment.aiGenerated ? (
+                <div className="comment-text">{renderMarkdown(comment.content)}</div>
+              ) : (
+                <p className="comment-text">{comment.content}</p>
+              )}
             </div>
 
             {/* The server decided whether this viewer may delete - see

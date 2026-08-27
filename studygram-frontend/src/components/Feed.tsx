@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { communities as communitiesApi, posts as postsApi } from '../api'
 import { useTopics } from '../hooks/useTopics'
-import type { Post, User } from '../types'
+import type { Post, PostType, User } from '../types'
 import { parseInterests } from '../utils/format'
 import { Avatar, EmptyState, Message, SkeletonPost } from './ui'
 import { PostCard } from './PostCard'
@@ -89,6 +89,7 @@ export function Feed({ currentUser }: { currentUser: User }) {
       <Composer
         currentUser={currentUser}
         onPosted={(created) => setPosts((current) => [created, ...current])}
+        onPostUpdated={updatePost}
       />
 
       <div className="tabs" role="tablist">
@@ -187,14 +188,26 @@ export function Feed({ currentUser }: { currentUser: User }) {
 function Composer({
   currentUser,
   onPosted,
+  onPostUpdated,
 }: {
   currentUser: User
   onPosted: (post: Post) => void
+  onPostUpdated: (post: Post) => void
 }) {
   const [open, setOpen] = useState(false)
+
+  /*
+   * Asking and sharing are different acts, so the composer asks which one up
+   * front rather than guessing. It changes the placeholder, the button, and
+   * whether the AI option appears at all - an AI answer makes no sense on
+   * "here's what I learned today".
+   */
+  const [postType, setPostType] = useState<PostType>('QUESTION')
+
   const [content, setContent] = useState('')
   const [topics, setTopics] = useState<string[]>([])
   const [anonymous, setAnonymous] = useState(false)
+  const [askAi, setAskAi] = useState(true)
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
 
@@ -211,6 +224,8 @@ function Composer({
     setContent('')
     setTopics([])
     setAnonymous(false)
+    setAskAi(true)
+    setPostType('QUESTION')
     setError('')
     setOpen(false)
   }
@@ -236,10 +251,37 @@ function Composer({
         content: content.trim(),
         topics,
         anonymous,
+        postType,
       })
 
       onPosted(created)
       reset()
+
+      /*
+       * The post is already on screen; the AI answer is fetched afterwards.
+       *
+       * Doing it here rather than inside create() is what keeps posting
+       * instant - generating an answer takes seconds, and nobody should watch
+       * a spinner on their own post while a language model thinks.
+       */
+      if (postType === 'QUESTION' && askAi) {
+        postsApi
+          .aiAnswer(created.id)
+          .then(() =>
+            onPostUpdated({
+              ...created,
+              hasAiAnswer: true,
+              commentCount: created.commentCount + 1,
+            }),
+          )
+          .catch(() => {
+            /*
+             * The AI being down must not look like the POST failing - the
+             * question was published and is perfectly usable without it.
+             * People can still answer.
+             */
+          })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not publish your post')
     } finally {
@@ -251,26 +293,54 @@ function Composer({
     return (
       <button className="composer-collapsed" onClick={() => setOpen(true)}>
         <Avatar name={currentUser.name ?? currentUser.username} size={36} />
-        <span>What did you learn today?</span>
+        <span>Ask a question, or share what you learned...</span>
       </button>
     )
   }
+
+  const isQuestion = postType === 'QUESTION'
 
   const remaining = MAX_LENGTH - content.length
 
   return (
     <section className="composer">
       <form onSubmit={handleSubmit}>
+        {/* Ask or share - chosen first, because it changes everything below. */}
+        <div className="type-switch" role="radiogroup" aria-label="What kind of post">
+          <button
+            type="button"
+            role="radio"
+            aria-checked={isQuestion}
+            className={`type-option ${isQuestion ? 'active' : ''}`}
+            onClick={() => setPostType('QUESTION')}
+          >
+            <span aria-hidden="true">❓</span> Ask a question
+          </button>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={!isQuestion}
+            className={`type-option ${!isQuestion ? 'active' : ''}`}
+            onClick={() => setPostType('SHARE')}
+          >
+            <span aria-hidden="true">✎</span> Share what you learned
+          </button>
+        </div>
+
         <div className="composer-head">
           <Avatar name={currentUser.name ?? currentUser.username} size={36} />
           <textarea
             ref={textareaRef}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="A tip, a question, a breakthrough — anything that helps someone else."
+            placeholder={
+              isQuestion
+                ? "What are you stuck on? Include what you've already tried."
+                : 'A tip, a breakthrough — anything that helps someone else.'
+            }
             rows={3}
             maxLength={MAX_LENGTH}
-            aria-label="Post content"
+            aria-label={isQuestion ? 'Your question' : 'What you learned'}
           />
         </div>
 
@@ -292,7 +362,7 @@ function Composer({
           {error}
         </Message>
 
-        <div className="composer-actions">
+        <div className="composer-options">
           <label className="checkbox">
             <input
               type="checkbox"
@@ -305,14 +375,31 @@ function Composer({
             </span>
           </label>
 
-          <div className="card-actions">
-            <button type="button" className="link" onClick={reset}>
-              Cancel
-            </button>
-            <button type="submit" className="btn" disabled={posting || !content.trim()}>
-              {posting ? 'Posting...' : 'Post'}
-            </button>
-          </div>
+          {/* Only on questions: an answer to "here's what I learned" is odd. */}
+          {isQuestion && (
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={askAi}
+                onChange={(e) => setAskAi(e.target.checked)}
+              />
+              <span>
+                Also get an instant AI answer
+                <small>
+                  Something to work with straight away. People can still answer.
+                </small>
+              </span>
+            </label>
+          )}
+        </div>
+
+        <div className="composer-actions">
+          <button type="button" className="link" onClick={reset}>
+            Cancel
+          </button>
+          <button type="submit" className="btn" disabled={posting || !content.trim()}>
+            {posting ? 'Posting...' : isQuestion ? 'Ask' : 'Share'}
+          </button>
         </div>
       </form>
     </section>
