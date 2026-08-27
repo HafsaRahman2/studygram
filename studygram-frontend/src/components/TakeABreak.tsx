@@ -332,9 +332,19 @@ export function TakeABreak({
           </button>
         </footer>
 
+        {/*
+          Reads the real cooldown rather than hardcoding "hour". The value is
+          configurable, so the sentence was capable of confidently telling
+          somebody the wrong thing.
+        */}
         <p className="break-note">
-          Ending early starts your next hour early too — you are not penalised
-          for coming back sooner.
+          Ending early starts your next{' '}
+          {status.cooldownMinutes >= 60
+            ? status.cooldownMinutes === 60
+              ? 'hour'
+              : `${Math.round(status.cooldownMinutes / 60)} hours`
+            : `${status.cooldownMinutes} minutes`}{' '}
+          early too — you are not penalised for coming back sooner.
         </p>
       </div>
     </div>
