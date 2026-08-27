@@ -76,7 +76,21 @@ public class PostResponse {
     private boolean anonymous;
     private LocalDateTime createdAt;
     private int helpfulCount;
+
+    /*
+     * Replies. Called "answers" in the UI on questions and "comments" on
+     * shares - the number is the same, only the word changes.
+     */
     private int commentCount;
+
+    /* "QUESTION" or "SHARE" - decides how the card is rendered. */
+    private String postType;
+
+    /* Whether the asker has marked a question answered. */
+    private boolean resolved;
+
+    /* True when the AI has already replied, so the UI never offers it twice. */
+    private boolean hasAiAnswer;
 
     /* Every topic this post is tagged with, in display form. */
     private List<String> topics = new ArrayList<>();
@@ -103,6 +117,8 @@ public class PostResponse {
         response.setCommentCount(commentCount);
         response.setAnonymous(post.isAnonymous());
         response.setTopics(new ArrayList<>(post.getTopics()));
+        response.setPostType(post.getPostType());
+        response.setResolved(post.isResolved());
 
         Long realAuthorId = post.getUser().getId();
 

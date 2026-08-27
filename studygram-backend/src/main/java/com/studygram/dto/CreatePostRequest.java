@@ -40,4 +40,10 @@ public class CreatePostRequest {
     // false = show username (default)
     private boolean anonymous;
 
+    /*
+     * "QUESTION" or "SHARE". Defaults to SHARE when omitted, so anything
+     * written against the older API keeps working.
+     */
+    private String postType = "SHARE";
+
 }

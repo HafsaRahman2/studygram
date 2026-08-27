@@ -58,4 +58,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("SELECT c.post.id, COUNT(c) FROM Comment c WHERE c.post IN :posts GROUP BY c.post.id")
     List<Object[]> countByPosts(@Param("posts") List<Post> posts);
 
+    /* Has the AI already answered this post? Stops it being asked twice. */
+    boolean existsByPostAndAiGeneratedTrue(Post post);
+
+    /*
+     * Which of these posts already have an AI answer.
+     *
+     * Batched for the same reason as countByPosts: asking per post would put
+     * the N+1 problem straight back into the feed.
+     */
+    @Query("SELECT DISTINCT c.post.id FROM Comment c "
+         + "WHERE c.post IN :posts AND c.aiGenerated = true")
+    List<Long> findPostIdsWithAiAnswer(@Param("posts") List<Post> posts);
+
 }

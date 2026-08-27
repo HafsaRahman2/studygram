@@ -1,7 +1,9 @@
 package com.studygram.controller;
 
+import com.studygram.dto.CommentResponse;
 import com.studygram.dto.CreatePostRequest;
 import com.studygram.dto.PostResponse;
+import com.studygram.entity.Comment;
 import com.studygram.entity.Post;
 import com.studygram.service.CommentService;
 import com.studygram.service.PostService;
@@ -60,6 +62,7 @@ public class PostController {
             post.setContent(request.getContent());
             post.setAnonymous(request.isAnonymous());
             post.setTopics(request.getTopics());
+            post.setPostType(request.getPostType());
 
             // Save via service (which validates content and topics)
             // The author is whoever the token says it is, never what the body claims.
@@ -210,6 +213,55 @@ public class PostController {
 
         } catch (RuntimeException e) {
             return ResponseEntity.status(404).body(e.getMessage());
+        }
+    }
+
+    /*
+     * ASK THE AI TO ANSWER YOUR QUESTION
+     *
+     * URL: POST /api/posts/5/ai-answer
+     *
+     * Deliberately a separate call rather than part of creating the post.
+     * Generating an answer takes a few seconds, and folding that into POST
+     * /api/posts would make every post - including ordinary shares that want
+     * nothing to do with the AI - sit and wait on a language model.
+     *
+     * Keeping it separate means the post appears instantly and the answer
+     * arrives after, with the UI free to show that it is thinking.
+     */
+    @PostMapping("/{id}/ai-answer")
+    public ResponseEntity<?> requestAiAnswer(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthenticatedUser me) {
+        try {
+
+            Comment answer = commentService.addAiAnswer(id, me.id());
+            return ResponseEntity.ok(CommentResponse.fromComment(answer, me.id()));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /*
+     * MARK A QUESTION ANSWERED (or un-mark it)
+     *
+     * URL: POST /api/posts/5/resolve
+     *
+     * Only the asker may do this - they are the only one who knows whether an
+     * answer actually helped.
+     */
+    @PostMapping("/{id}/resolve")
+    public ResponseEntity<?> toggleResolved(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthenticatedUser me) {
+        try {
+
+            Post post = postService.toggleResolved(id, me.id());
+            return ResponseEntity.ok(postService.toResponses(List.of(post), me.id()).get(0));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

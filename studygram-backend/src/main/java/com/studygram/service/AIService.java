@@ -1,5 +1,7 @@
 package com.studygram.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,8 @@ import java.util.*;
  */
 @Service
 public class AIService {
+
+    private static final Logger log = LoggerFactory.getLogger(AIService.class);
 
     /*
      * @Value reads from application.properties, which in turn reads from the
@@ -53,12 +57,20 @@ public class AIService {
      */
     public String chat(String userMessage) {
 
-        // If no key is configured, say so clearly instead of sending a doomed
-        // request and surfacing a confusing 401 to the user.
+        /*
+         * No key configured: fail loudly rather than returning prose.
+         *
+         * This used to RETURN an explanatory sentence, which read fine in the
+         * chat window but was quietly disastrous once questions could have AI
+         * answers - the explanation got saved to the database as though the AI
+         * had answered the question. Throwing means callers cannot mistake a
+         * failure for a reply.
+         */
         if (apiKey == null || apiKey.isBlank()) {
-            return "The AI assistant is not configured on this server. "
-                    + "Set the GROQ_API_KEY environment variable and restart the backend. "
-                    + "You can get a free key at https://console.groq.com/keys";
+            throw new AiUnavailableException(
+                    "The AI assistant is not configured on this server. "
+                    + "Set GROQ_API_KEY and restart the backend. "
+                    + "Free keys: https://console.groq.com/keys");
         }
 
         // Set up HTTP headers
@@ -70,7 +82,13 @@ public class AIService {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("model", model);
         requestBody.put("temperature", 0.7);  // Creativity level (0-1)
-        requestBody.put("max_tokens", 1024);  // Max response length
+        /*
+         * Generous, because current models spend part of their budget on
+         * internal reasoning before writing anything. With a small limit they
+         * can burn the whole allowance thinking and return a single word - which
+         * is exactly what happened while picking a replacement model.
+         */
+        requestBody.put("max_tokens", 2048);
 
         // Messages array (conversation format)
         List<Map<String, String>> messages = new ArrayList<>();
@@ -111,8 +129,34 @@ public class AIService {
 
             return aiResponse;
 
+        } catch (AiUnavailableException e) {
+            throw e;
+
         } catch (Exception e) {
-            return "Sorry, I couldn't process your request. Error: " + e.getMessage();
+            /*
+             * Any failure - the model was decommissioned, the key was revoked,
+             * Groq was down - must NOT come back as a string. A caller saving
+             * the result would persist "Sorry, I couldn't process your request"
+             * as the answer to somebody's question.
+             *
+             * That is not hypothetical: it is what this code did, and the
+             * evidence was sitting in the database as an AI answer that was
+             * really a 404.
+             */
+            log.warn("Groq request failed: {}", e.getMessage());
+            throw new AiUnavailableException(
+                    "The AI assistant is temporarily unavailable. Please try again shortly.");
+        }
+    }
+
+    /*
+     * Thrown when the assistant cannot answer. Distinct from an ordinary
+     * RuntimeException so callers can tell "the AI is down" apart from "you
+     * asked for something invalid".
+     */
+    public static class AiUnavailableException extends RuntimeException {
+        public AiUnavailableException(String message) {
+            super(message);
         }
     }
 

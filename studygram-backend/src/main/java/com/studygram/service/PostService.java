@@ -15,9 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /*
@@ -90,6 +92,15 @@ public class PostService {
 
         if (post.getTopics().size() > MAX_TOPICS_PER_POST) {
             throw new RuntimeException("A post can have at most " + MAX_TOPICS_PER_POST + " topics");
+        }
+
+        /*
+         * Only the two known kinds are accepted. Anything else - a typo, or a
+         * client sending something inventive - becomes a plain SHARE rather
+         * than a row nothing knows how to render.
+         */
+        if (!Post.TYPE_QUESTION.equals(post.getPostType())) {
+            post.setPostType(Post.TYPE_SHARE);
         }
 
         // Attach the user to the post
@@ -194,6 +205,9 @@ public class PostService {
             commentCounts.put((Long) row[0], ((Number) row[1]).intValue());
         }
 
+        // ONE query: which posts the AI has already answered
+        Set<Long> withAiAnswer = new HashSet<>(commentRepository.findPostIdsWithAiAnswer(posts));
+
         // ONE query: postId -> list of usernames who found it helpful
         Map<Long, List<String>> helpfulUsers = new HashMap<>();
         for (Object[] row : helpfulRepository.findUsernamesByPosts(posts)) {
@@ -213,6 +227,7 @@ public class PostService {
                     response.setHelpfulUsers(
                             helpfulUsers.getOrDefault(post.getId(), List.of())
                     );
+                    response.setHasAiAnswer(withAiAnswer.contains(post.getId()));
                     return response;
                 })
                 .collect(Collectors.toList());
@@ -307,6 +322,31 @@ public class PostService {
         return helpfuls.stream()
                 .map(h -> h.getUser().getUsername())
                 .collect(Collectors.toList());
+    }
+
+    /*
+     * MARK A QUESTION ANSWERED (or un-mark it)
+     *
+     * Only the person who asked can decide their question is answered - they
+     * are the one who knows whether it actually helped. Letting anyone mark it
+     * would make the signal worthless.
+     */
+    @Transactional
+    public Post toggleResolved(Long postId, Long userId) {
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        if (!post.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Only the person who asked can mark this answered");
+        }
+
+        if (!post.isQuestion()) {
+            throw new RuntimeException("Only questions can be marked answered");
+        }
+
+        post.setResolved(!post.isResolved());
+        return postRepository.save(post);
     }
 
     /*
