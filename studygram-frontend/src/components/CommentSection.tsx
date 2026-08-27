@@ -121,6 +121,24 @@ export function CommentSection({
         {error}
       </Message>
 
+      {/*
+        Announces the thread loading and any change to it, so somebody
+        listening learns that answers arrived rather than sitting in silence.
+      */}
+      <p role="status" className="sr-only">
+        {loading
+          ? 'Loading replies'
+          : `${comments.length} ${
+              isQuestion
+                ? comments.length === 1
+                  ? 'answer'
+                  : 'answers'
+                : comments.length === 1
+                  ? 'comment'
+                  : 'comments'
+            }`}
+      </p>
+
       {loading && <Spinner label="Loading comments" />}
 
       {!loading && comments.length === 0 && (

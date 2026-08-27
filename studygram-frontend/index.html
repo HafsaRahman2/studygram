@@ -1,10 +1,27 @@
 <!doctype html>
+<!--
+  lang="en" matters more than it looks.
+
+  Screen readers use it to choose a pronunciation engine. Without it, an English
+  page read by a reader configured for another language comes out as nonsense
+  syllables. It is one attribute and it decides whether the page is usable at
+  all for someone listening to it.
+-->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>studygram-frontend</title>
+
+    <!-- The title is read aloud first when a page loads, and is what a browser
+         tab, a bookmark and a shared link all show. "studygram-frontend" was
+         the scaffold's folder name. -->
+    <title>StudyGram — ask, answer, take a break</title>
+
+    <meta
+      name="description"
+      content="A study community for students: ask a question and get an instant AI answer while real people answer it properly, share what you're learning, and take a proper break."
+    />
   </head>
   <body>
     <div id="root"></div>

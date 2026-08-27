@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatClock } from '../hooks/useBreak'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import type { BreakStatus } from '../types'
 
 /*
@@ -240,6 +241,15 @@ export function TakeABreak({
   const [activity, setActivity] = useState<ActivityId>('breathe')
 
   /*
+   * Keyboard focus stays inside the overlay while it is open, and Escape
+   * minimizes it. Without the trap, Tab would walk focus into the feed behind -
+   * which is invisible but still reachable, and deeply confusing for anyone
+   * navigating by keyboard or screen reader.
+   */
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, true, onMinimize)
+
+  /*
    * Warn when the break is nearly over, so going back to work is not a
    * surprise. Under a minute is late enough to matter and early enough to
    * finish what you are doing.
@@ -247,18 +257,38 @@ export function TakeABreak({
   const almostDone = remaining <= 60
 
   return (
-    <div className="break-overlay" role="dialog" aria-label="Break time">
+    <div
+      className="break-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="break-heading"
+      ref={dialogRef}
+    >
       <div className="break-inner">
         <header className="break-head">
           <div>
-            <span className="break-label">Break time</span>
-            <div className={`break-clock ${almostDone ? 'ending' : ''}`}>
+            <span className="break-label" id="break-heading">
+              Break time
+            </span>
+
+            {/*
+              aria-live="off" on the ticking clock, deliberately.
+
+              A screen reader announcing a new time every single second would
+              make the break unusable - it would talk over everything else and
+              never stop. The remaining time is available on demand instead.
+            */}
+            <div
+              className={`break-clock ${almostDone ? 'ending' : ''}`}
+              aria-live="off"
+              aria-label={`${Math.floor(remaining / 60)} minutes ${remaining % 60} seconds remaining`}
+            >
               {formatClock(remaining)}
             </div>
           </div>
 
           <button className="link" onClick={onMinimize}>
-            Minimize
+            Minimize<span className="sr-only"> break screen (or press Escape)</span>
           </button>
         </header>
 

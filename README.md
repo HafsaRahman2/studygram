@@ -23,6 +23,7 @@ makes you stop every so often.
 - [API reference](#api-reference)
 - [Authentication](#authentication)
 - [Testing](#testing)
+- [Accessibility](#accessibility)
 - [Engineering notes](#engineering-notes)
 - [Known limitations](#known-limitations)
 
@@ -32,6 +33,8 @@ makes you stop every so often.
 
 | Feature | Description |
 | --- | --- |
+| **Ask or share** | Every post is a **question** or a **share**. Questions get answers, can be marked answered, and are visually distinct from someone sharing what they learned. |
+| **Instant AI answers** | Ask a question and optionally get an AI answer immediately, while real people answer it properly. Always labelled as AI-generated. |
 | **Topic-based feed** | Posts carry one to five topics. The *For you* feed returns only posts matching the interests on your profile. |
 | **Anonymous posting** | Publish without your identity attached. The server strips the author entirely — see [Engineering notes](#anonymity-is-enforced-on-the-server). |
 | **Helpful marks & comments** | A join table records who found what helpful, so a post can be marked once per person and show who did. |
@@ -483,6 +486,34 @@ PostgreSQL.
 
 The negative tests are the point. That a valid token works is table stakes; what protects accounts
 is that a **tampered** one does not, and that Bob cannot delete Alice's post however he asks.
+
+---
+
+## Accessibility
+
+Built in rather than bolted on, because retrofitting it is far harder.
+
+| | |
+| --- | --- |
+| **Skip link** | First thing Tab reaches; jumps straight past the navigation to the content |
+| **Focus trap** | The break overlay keeps keyboard focus inside it, closes on Escape, and returns focus to the button that opened it |
+| **Live regions** | Posting, and answers arriving, are announced — events a sighted user learns from things appearing on screen |
+| **Contrast** | Muted text was around 4.0:1 and 2.6:1, below the 4.5:1 WCAG AA asks for. Both palettes corrected. |
+| **`lang="en"`** | Screen readers pick a pronunciation engine from it; without it an English page can be read as nonsense |
+| **Focus rings** | `:focus-visible`, so keyboard users get a ring and mouse users do not |
+| **Semantics** | Real `<main>`, `<nav>`, `<article>`, `<header>`; `role="tab"`/`aria-selected` on tabs; `aria-expanded` on menus |
+| **Decorative emoji** | `aria-hidden`, so a screen reader does not read "graduation cap" before every AI answer |
+
+Two decisions worth explaining:
+
+**The break timer is `aria-live="off"`.** A live region announcing a new time every second would talk
+over everything else and never stop, making the break unusable. The remaining time is exposed via
+`aria-label` and available on demand instead. *A live region is not automatically an improvement —
+an unwelcome one is worse than none.*
+
+**`sr-only` clips rather than hides.** `display: none` would remove the text from the accessibility
+tree entirely, which defeats the point. It is clipped to a single pixel so it stays readable to
+assistive technology while being invisible on screen.
 
 ---
 

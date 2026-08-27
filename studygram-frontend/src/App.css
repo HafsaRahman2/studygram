@@ -38,8 +38,16 @@
   --border-strong: #d1d5db;
 
   --text: #111827;
-  --text-muted: #6b7280;
-  --text-subtle: #9ca3af;
+  /*
+   * CONTRAST
+   *
+   * These were #6b7280 and #9ca3af, which land around 4.0:1 and 2.6:1 against
+   * the light background - below the 4.5:1 that WCAG AA asks for body text.
+   * Darkened until both pass. Grey text that looks elegant to someone with
+   * good eyesight can be genuinely unreadable to someone without it.
+   */
+  --text-muted: #575e6b;
+  --text-subtle: #6b7280;
 
   /* Feedback */
   --danger: #dc2626;
@@ -85,8 +93,9 @@
     --border-strong: #363c4a;
 
     --text: #e5e7eb;
-    --text-muted: #9ca3af;
-    --text-subtle: #6b7280;
+    /* Same reasoning as the light palette, lightened instead of darkened. */
+    --text-muted: #a8b0bd;
+    --text-subtle: #8b93a1;
 
     --danger-soft: #2a1315;
     --danger-border: #5b2326;
@@ -173,6 +182,63 @@ select {
 
 a {
   color: var(--brand);
+}
+
+/* --- Accessibility utilities --- */
+
+/*
+ * sr-only: available to screen readers, invisible on screen.
+ *
+ * Used for text that gives context a sighted user gets from layout - "Skip to
+ * main content", "3 answers", "posted successfully". Note it is NOT
+ * display:none, which would remove it from the accessibility tree entirely and
+ * defeat the point. It is clipped to a single pixel instead, which keeps it
+ * readable to assistive technology.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * The skip link: hidden until focused, then the first thing on the page.
+ *
+ * A keyboard user landing here would otherwise Tab through every navigation
+ * item before reaching the content, on every page load. This makes it one
+ * keypress.
+ */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.7rem 1.1rem;
+  background: var(--brand);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/*
+ * The <main> element takes tabIndex={-1} so the skip link can move focus to it.
+ * It must never show a focus ring, since focus arrives there programmatically
+ * rather than because the user tabbed onto a control.
+ */
+#main-content:focus {
+  outline: none;
 }
 
 /*

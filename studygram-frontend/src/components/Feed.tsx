@@ -211,6 +211,15 @@ function Composer({
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
 
+  /*
+   * A message for screen readers only.
+   *
+   * A sighted user sees their post appear at the top of the feed and knows it
+   * worked. Somebody listening gets no such signal - the composer simply
+   * closes. This announces the outcome through the live region below.
+   */
+  const [status, setStatus] = useState('')
+
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const MAX_LENGTH = 2000
 
@@ -255,6 +264,7 @@ function Composer({
       })
 
       onPosted(created)
+      setStatus(postType === 'QUESTION' ? 'Question posted' : 'Post shared')
       reset()
 
       /*
@@ -291,10 +301,20 @@ function Composer({
 
   if (!open) {
     return (
-      <button className="composer-collapsed" onClick={() => setOpen(true)}>
-        <Avatar name={currentUser.name ?? currentUser.username} size={36} />
-        <span>Ask a question, or share what you learned...</span>
-      </button>
+      <>
+        <button className="composer-collapsed" onClick={() => setOpen(true)}>
+          <Avatar name={currentUser.name ?? currentUser.username} size={36} />
+          <span>Ask a question, or share what you learned...</span>
+        </button>
+
+        {/*
+          role="status" is a polite live region: a screen reader announces
+          changes here when it next pauses, rather than interrupting.
+        */}
+        <p role="status" className="sr-only">
+          {status}
+        </p>
+      </>
     )
   }
 

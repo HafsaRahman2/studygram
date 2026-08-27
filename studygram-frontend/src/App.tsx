@@ -177,6 +177,18 @@ export default function App() {
 
   return (
     <div className="app">
+      {/*
+        SKIP LINK
+        Visually hidden until focused, and the first thing Tab reaches.
+
+        Without it, a keyboard or screen reader user has to walk through every
+        navigation item on every single page load before reaching the content.
+        One link turns that into one keypress.
+      */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
       <Header
         currentUser={user}
         currentPage={page}
@@ -229,7 +241,13 @@ export default function App() {
 
       {/* The `narrow` class constrains reading width on the content-heavy
           screens; the landing page spans the full width. */}
-      <main className={`main ${page === 'home' ? '' : 'narrow'}`}>{renderPage()}</main>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={`main ${page === 'home' ? '' : 'narrow'}`}
+      >
+        {renderPage()}
+      </main>
 
       <footer className="footer">
         <p>
