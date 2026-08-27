@@ -146,7 +146,7 @@ export default function App() {
         return <Login onLoggedIn={handleLogin} onNavigate={setPage} />
 
       case 'signup':
-        return <Signup onNavigate={setPage} />
+        return <Signup onLoggedIn={handleLogin} onNavigate={setPage} />
 
       case 'forgot-password':
         return <ForgotPassword onNavigate={setPage} />

@@ -105,7 +105,13 @@ export function Login({
 
 /* ---------------------------------------------------------------- Signup */
 
-export function Signup({ onNavigate }: { onNavigate: (page: Page) => void }) {
+export function Signup({
+  onLoggedIn,
+  onNavigate,
+}: {
+  onLoggedIn: (user: User) => void
+  onNavigate: (page: Page) => void
+}) {
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -114,13 +120,11 @@ export function Signup({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setError('')
-    setSuccess('')
 
     if (password !== confirm) {
       setError('The two passwords do not match.')
@@ -135,7 +139,7 @@ export function Signup({ onNavigate }: { onNavigate: (page: Page) => void }) {
     setSubmitting(true)
 
     try {
-      await auth.signup({
+      const result = await auth.signup({
         name,
         username,
         email,
@@ -143,13 +147,16 @@ export function Signup({ onNavigate }: { onNavigate: (page: Page) => void }) {
         password,
       })
 
-      setSuccess('Account created. You can log in now.')
-      setName('')
-      setUsername('')
-      setEmail('')
-      setPhone('')
-      setPassword('')
-      setConfirm('')
+      /*
+       * Sign up and you are in.
+       *
+       * This used to show "Account created, you can log in now" and send you to
+       * the login form - so you typed your password twice to register, then a
+       * third time to actually get in. The server has returned a token since
+       * JWTs were added; the frontend was simply throwing it away.
+       */
+      setAuthToken(result.token)
+      onLoggedIn(result.user)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Signup failed')
     } finally {
@@ -175,15 +182,6 @@ export function Signup({ onNavigate }: { onNavigate: (page: Page) => void }) {
       <Message kind="error" onDismiss={() => setError('')}>
         {error}
       </Message>
-
-      {success && (
-        <div className="message message-success" role="alert">
-          <span>{success}</span>
-          <button className="link" onClick={() => onNavigate('login')}>
-            Go to login
-          </button>
-        </div>
-      )}
 
       <form onSubmit={handleSubmit}>
         <div className="field">
