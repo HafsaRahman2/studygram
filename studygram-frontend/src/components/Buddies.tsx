@@ -93,32 +93,49 @@ export function Buddies({
         </p>
       </header>
 
-      <div className="tabs" role="tablist">
+      {/*
+        Toggle buttons, not tabs - the same correction made on the feed.
+
+        role="tab" promises arrow-key navigation between the tabs and a panel
+        each one controls. Neither was implemented, so screen reader users were
+        told about a keyboard shortcut that does not exist and pointed at a
+        panel that was never there. aria-pressed describes what these actually
+        do, and the counts are spelled out so "Requests 2" is not announced as
+        the number two floating after a word.
+      */}
+      <div className="tabs" role="group" aria-label="Crew sections">
         <button
-          role="tab"
-          aria-selected={tab === 'buddies'}
+          aria-pressed={tab === 'buddies'}
           className={`tab ${tab === 'buddies' ? 'active' : ''}`}
           onClick={() => setTab('buddies')}
         >
           Your crew
-          {myBuddies.length > 0 && <span className="tab-count">{myBuddies.length}</span>}
+          {myBuddies.length > 0 && (
+            <span className="tab-count">
+              {myBuddies.length}
+              <span className="sr-only"> people</span>
+            </span>
+          )}
         </button>
 
         <button
-          role="tab"
-          aria-selected={tab === 'requests'}
+          aria-pressed={tab === 'requests'}
           className={`tab ${tab === 'requests' ? 'active' : ''}`}
           onClick={() => setTab('requests')}
         >
           Requests
           {/* Only incoming requests get the attention-seeking badge - the ones
               you sent are not waiting on you. */}
-          {incoming.length > 0 && <span className="tab-badge">{incoming.length}</span>}
+          {incoming.length > 0 && (
+            <span className="tab-badge">
+              {incoming.length}
+              <span className="sr-only"> waiting for you</span>
+            </span>
+          )}
         </button>
 
         <button
-          role="tab"
-          aria-selected={tab === 'find'}
+          aria-pressed={tab === 'find'}
           className={`tab ${tab === 'find' ? 'active' : ''}`}
           onClick={() => setTab('find')}
         >
@@ -536,11 +553,6 @@ function RelationshipAction({
           Accept
         </button>
       )
-
-    case 'REJECTED':
-      /* Deliberately not re-offering "Add". A declined request should not turn
-         the app into a way to keep asking. */
-      return <span className="pill muted-pill">Declined</span>
 
     case 'SELF':
       return <span className="pill muted-pill">You</span>

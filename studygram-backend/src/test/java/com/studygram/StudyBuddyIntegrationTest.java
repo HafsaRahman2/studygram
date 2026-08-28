@@ -183,6 +183,110 @@ class StudyBuddyIntegrationTest extends IntegrationTestBase {
     }
 
     /* ================================================================
+     * Declining
+     * ================================================================
+     *
+     * This whole path had no tests, which is where the bug was.
+     *
+     * Declining used to mark the row "REJECTED" and keep it, while
+     * sendBuddyRequest refuses whenever any row exists at all. So one decline
+     * walled these two off from each other permanently, in both directions -
+     * and the leftover row was rendered to both of them as "Declined", telling
+     * the sender in as many words that they had been turned down.
+     */
+
+    @Test
+    @DisplayName("declining removes the request from both people's lists")
+    void decliningClearsTheRequest() throws Exception {
+        sendRequest(aliceToken, bob.getId());
+        Long requestId = studyBuddyRepository.findAll().get(0).getId();
+
+        mockMvc.perform(post("/api/buddies/reject/" + requestId)
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/buddies/pending").header("Authorization", bearer(bobToken)))
+                .andExpect(jsonPath("$").isEmpty());
+
+        mockMvc.perform(get("/api/buddies/sent").header("Authorization", bearer(aliceToken)))
+                .andExpect(jsonPath("$").isEmpty());
+
+        assertThat(studyBuddyRepository.findAll())
+                .as("a declined request should leave nothing behind to block a later one")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("being declined is not announced to the person who asked")
+    void declineIsNotRevealedToTheSender() throws Exception {
+        sendRequest(aliceToken, bob.getId());
+        Long requestId = studyBuddyRepository.findAll().get(0).getId();
+
+        mockMvc.perform(post("/api/buddies/reject/" + requestId)
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk());
+
+        /*
+         * Alice looking Bob up sees an ordinary person she is not connected to.
+         * She used to see "Declined", which is a thing the app has no need to
+         * tell anybody.
+         */
+        mockMvc.perform(get("/api/buddies/search?q=bob")
+                        .header("Authorization", bearer(aliceToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].relationship").value("NONE"));
+    }
+
+    @Test
+    @DisplayName("after a decline, the sender may ask again")
+    void senderCanAskAgainAfterADecline() throws Exception {
+        sendRequest(aliceToken, bob.getId());
+        Long requestId = studyBuddyRepository.findAll().get(0).getId();
+
+        mockMvc.perform(post("/api/buddies/reject/" + requestId)
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk());
+
+        /* Would have failed with "Buddy request already exists". */
+        sendRequest(aliceToken, bob.getId());
+    }
+
+    @Test
+    @DisplayName("after declining, you can still add that person yourself")
+    void declinerIsNotLockedOutOfTheirOwnChangeOfMind() throws Exception {
+        sendRequest(aliceToken, bob.getId());
+        Long requestId = studyBuddyRepository.findAll().get(0).getId();
+
+        mockMvc.perform(post("/api/buddies/reject/" + requestId)
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk());
+
+        /*
+         * The sharpest form of the bug: Bob taps Decline by accident, then wants
+         * to add Alice - and his own misclick had made that impossible forever,
+         * with nothing anywhere offering a way to undo it.
+         */
+        sendRequest(bobToken, alice.getId());
+
+        mockMvc.perform(get("/api/buddies/pending").header("Authorization", bearer(aliceToken)))
+                .andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("only the recipient can decline a request")
+    void onlyRecipientCanDecline() throws Exception {
+        sendRequest(aliceToken, bob.getId());
+        Long requestId = studyBuddyRepository.findAll().get(0).getId();
+
+        /* Alice sent it; declining on Bob's behalf is not hers to do. */
+        mockMvc.perform(post("/api/buddies/reject/" + requestId)
+                        .header("Authorization", bearer(aliceToken)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(studyBuddyRepository.findAll()).hasSize(1);
+    }
+
+    /* ================================================================
      * Finding people
      * ================================================================ */
 

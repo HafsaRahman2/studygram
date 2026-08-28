@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTopics } from '../hooks/useTopics'
 
 /*
@@ -29,6 +29,19 @@ export function TopicPicker({
   label?: string
 }) {
   const { topicNames, byCategory, loading } = useTopics()
+
+  /*
+   * useId gives ids that are unique per instance and stable across renders.
+   *
+   * Two things were wrong without it. The visible <label> had no htmlFor and
+   * the input had no id, so the label was decoration - to a screen reader this
+   * combobox had no name at all, on signup, in the composer and on the profile
+   * alike. And the listbox id was the literal string "topic-listbox", so two
+   * pickers on one page would both claim it and aria-controls would point at
+   * whichever won.
+   */
+  const inputId = useId()
+  const listboxId = useId()
 
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
@@ -126,7 +139,7 @@ export function TopicPicker({
     <div className="topic-picker" ref={containerRef}>
       {label && (
         <div className="picker-label">
-          <label>{label}</label>
+          <label htmlFor={inputId}>{label}</label>
           <span className={`picker-count ${atLimit ? 'at-limit' : ''}`}>
             {selected.length}/{max}
           </span>
@@ -153,6 +166,13 @@ export function TopicPicker({
 
       <div className="picker-input-wrap">
         <input
+          id={inputId}
+          /*
+           * Falls back to a spoken name when the caller renders no visible
+           * label. An unnamed combobox is announced as "edit text" and nothing
+           * more, which tells you it exists and not what it is for.
+           */
+          aria-label={label ? undefined : 'Search topics'}
           type="text"
           value={search}
           placeholder={
@@ -173,11 +193,11 @@ export function TopicPicker({
           // Tells assistive technology this input drives a popup list
           role="combobox"
           aria-expanded={open}
-          aria-controls="topic-listbox"
+          aria-controls={listboxId}
         />
 
         {open && !loading && !atLimit && (
-          <div className="picker-dropdown" id="topic-listbox" role="listbox">
+          <div className="picker-dropdown" id={listboxId} role="listbox">
             {matches.length === 0 ? (
               <div className="picker-empty">No topics match "{search}"</div>
             ) : search ? (

@@ -99,6 +99,24 @@ public class StudyBuddyService {
 
     /*
      * REJECT BUDDY REQUEST
+     *
+     * Declining DELETES the request. It used to set the status to "REJECTED"
+     * and keep the row, which had two consequences neither of them intended.
+     *
+     * First, a dead end. sendBuddyRequest refuses when any connection already
+     * exists, whatever its status - so one decline meant these two people could
+     * never connect again, in either direction. The person who declined was
+     * punished by their own click, and a misclick was permanent, with nothing
+     * in the interface to undo it.
+     *
+     * Second, the leftover row was shown to both people as "Declined". So the
+     * person who had been turned down was told, in as many words, that they had
+     * been turned down. The app does not need to say that.
+     *
+     * Deleting the row settles both: nobody is told anything, and either of
+     * them can send a fresh request later if they want to. If it ever becomes a
+     * way to pester somebody, the fix is a rate limit on how often you may ask
+     * the same person - a rule about frequency, not a permanent wall.
      */
     public void rejectRequest(Long requestId, Long userId) {
 
@@ -110,8 +128,7 @@ public class StudyBuddyService {
             throw new RuntimeException("You can only reject requests sent to you");
         }
 
-        request.setStatus("REJECTED");
-        studyBuddyRepository.save(request);
+        studyBuddyRepository.delete(request);
     }
 
     /*
@@ -209,7 +226,6 @@ public class StudyBuddyService {
 
         switch (connection.getStatus()) {
             case "ACCEPTED" -> result.setRelationship("BUDDIES");
-            case "REJECTED" -> result.setRelationship("REJECTED");
             default -> {
                 // Pending: which way round decides whether you can accept it
                 boolean viewerSentIt = connection.getUser().getId().equals(viewer.getId());

@@ -210,7 +210,20 @@ public class UserController {
             return ResponseEntity.ok(UserProfileResponse.ofOwner(user));
 
         } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
+            /*
+             * 400, not 404.
+             *
+             * This used to answer every failure with "not found", which made
+             * sense when the only way to fail was a missing user. Now that
+             * interests are validated here, "pick at least 2 interests" was
+             * being reported as a missing page - a status that tells the client
+             * to stop asking rather than to fix the input.
+             *
+             * A 404 is no longer reachable in practice anyway: the user id
+             * comes from a verified token, so the account exists by the time
+             * the request gets here.
+             */
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

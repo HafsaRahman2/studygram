@@ -68,8 +68,6 @@ export interface Post {
   postType: PostType
   /* Whether the asker has marked a question answered. */
   resolved: boolean
-  /* True once the AI has replied, so the UI never offers it twice. */
-  hasAiAnswer: boolean
 }
 
 /*
@@ -93,8 +91,6 @@ export interface Comment {
   authorUsername: string | null
   canDelete: boolean
   anonymous: boolean
-  /* True when the AI wrote this rather than a person. Always shown. */
-  aiGenerated: boolean
   createdAt: string
 }
 
@@ -135,7 +131,6 @@ export type BuddyRelationship =
   | 'REQUEST_SENT'
   | 'REQUEST_RECEIVED'
   | 'BUDDIES'
-  | 'REJECTED'
 
 /* One person in search results or suggestions, plus your relationship to them. */
 export interface UserSearchResult {
@@ -182,7 +177,6 @@ export interface AiMessage {
   content: string
 }
 
-export type AiMode = 'chat' | 'explain' | 'practice' | 'summarize'
 
 /* Which screen the app is showing. */
 export type Page =

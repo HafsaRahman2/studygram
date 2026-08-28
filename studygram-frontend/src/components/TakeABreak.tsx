@@ -223,6 +223,22 @@ function JustSit() {
   )
 }
 
+/*
+ * "hour" / "45 minutes" / "2 hours" - never "1 minutes".
+ *
+ * Naive pluralisation produced "your next 1 minutes" the moment the cooldown
+ * was set to anything singular. Small, but it is the kind of thing a reader
+ * notices immediately and quietly downgrades their opinion of everything else.
+ */
+function formatCooldown(minutes: number): string {
+  if (minutes < 60) {
+    return minutes === 1 ? 'minute' : `${minutes} minutes`
+  }
+
+  const hours = Math.round(minutes / 60)
+  return hours === 1 ? 'hour' : `${hours} hours`
+}
+
 /* ------------------------------------------------------------ main screen */
 
 export function TakeABreak({
@@ -338,12 +354,7 @@ export function TakeABreak({
           somebody the wrong thing.
         */}
         <p className="break-note">
-          Ending early starts your next{' '}
-          {status.cooldownMinutes >= 60
-            ? status.cooldownMinutes === 60
-              ? 'hour'
-              : `${Math.round(status.cooldownMinutes / 60)} hours`
-            : `${status.cooldownMinutes} minutes`}{' '}
+          Ending early starts your next {formatCooldown(status.cooldownMinutes)}{' '}
           early too — you are not penalised for coming back sooner.
         </p>
       </div>

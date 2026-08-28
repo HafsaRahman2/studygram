@@ -1,32 +1,37 @@
 import type { Page } from '../types'
 
 /*
- * Home - The landing page for logged-out visitors
+ * Home - The landing page
  *
- * This is the first thing anyone sees, so it has one job: explain what
- * StudyGram is and give a single obvious next step.
+ * The copy here is Hafsa's, lightly tidied - not written to sound like a
+ * product. "You matter", "without depending on it", "where the only thing you
+ * focus on is focusing" and "we got you" are hers, and they are the reason this
+ * page sounds like a person rather than a marketing team.
+ *
+ * The one job of this page: say what StudyGram is, and give one obvious next
+ * step.
  */
 export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const features = [
     {
-      icon: '🎯',
-      title: 'Ask, and get answered',
-      body: 'Ask a question and get an instant AI answer, while real people answer it properly.',
-    },
-    {
-      icon: '🕶️',
-      title: 'Ask anything, anonymously',
-      body: 'Post without your name attached. Your identity is stripped on the server, not just hidden in the page.',
-    },
-    {
       icon: '🎓',
-      title: 'An AI study assistant',
-      body: 'Explain a concept, generate practice questions, or summarize your notes without leaving the app.',
+      title: 'Your own AI assistant — without depending on it',
+      body: 'Ask it anything, push back when it does not click, then get it to test you on what you covered. It helps you understand; it does not do the understanding for you.',
+    },
+    {
+      icon: '🙋',
+      title: 'Getting stuck? Can’t understand properly?',
+      body: 'Ask real people who have been through the same thing — and anonymously, if you would rather not put your name to it.',
     },
     {
       icon: '🤝',
-      title: 'Find your crew',
-      body: 'Connect with people learning the same things, and follow what they are working on.',
+      title: 'Make your own crew',
+      body: 'Find people studying what you study, and keep up with what they are working on.',
+    },
+    {
+      icon: '☕',
+      title: 'Take a break — a real one',
+      body: 'Five minutes, then back to it. StudyGram will not let you get lost.',
     },
   ]
 
@@ -34,16 +39,22 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
     <div className="home">
       <section className="hero">
         <h1>
-          Learn in public.
+          You matter.
           <br />
-          <span className="accent">Without the noise.</span>
+          <span className="accent">So does your focus.</span>
         </h1>
 
         <p className="hero-sub">
-          StudyGram is a social network for students, built around what you are
-          learning rather than what you are doing. Share progress, ask the
-          questions you are embarrassed to ask, and find people studying the same
-          thing.
+          Getting distracted while studying? Jumping from one app to another just to
+          find one answer — then somehow scrolling your feed for an hour without
+          even realising?
+        </p>
+
+        <p className="hero-sub hero-emphasis">You’re not the only one.</p>
+
+        <p className="hero-sub">
+          StudyGram puts it all in one place, so the only thing you focus on is
+          focusing.
         </p>
 
         <div className="hero-actions">
@@ -70,6 +81,10 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
           </div>
         ))}
       </section>
+
+      <p className="home-closing">
+        Keeping you on track while you ace your exams.
+      </p>
     </div>
   )
 }

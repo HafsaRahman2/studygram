@@ -2,7 +2,19 @@ import { useEffect, useState } from 'react'
 import { auth, github, posts as postsApi, profile as profileApi } from '../api'
 import type { Post, User } from '../types'
 import { parseInterests } from '../utils/format'
-import { Avatar, EmptyState, Message, Spinner, TopicChips } from './ui'
+import { Avatar, EmptyState, Message, PasswordInput, Spinner, TopicChips } from './ui'
+import { MIN_PASSWORD_LENGTH, passwordStrength } from '../utils/password'
+
+/*
+ * The same limits signup enforces, and the same ones UserService now checks.
+ *
+ * Signup makes you pick between two and five interests, but the profile let you
+ * save none - and then "For you" was permanently empty with nothing on screen
+ * explaining why the feed had died. It also let you pick ten, which signup
+ * would have refused. The rule has to be the same rule wherever you edit them.
+ */
+const MIN_INTERESTS = 2
+const MAX_INTERESTS = 5
 import { PostCard } from './PostCard'
 import { TopicPicker } from './TopicPicker'
 
@@ -126,15 +138,13 @@ function ProfileView({
 
       <div className="profile-rows">
         <Row label="Email" value={currentUser.email} privateToYou />
-        <Row label="Phone" value={currentUser.phoneNumber} privateToYou />
         <Row label="Education" value={currentUser.education} />
         <Row label="GitHub" value={currentUser.githubUsername} />
       </div>
 
       <p className="privacy-note">
-        Your email and phone number are never sent to anyone else. The server
-        leaves them out of the response entirely, so there is nothing to find in
-        the page source.
+        Your email is never sent to anyone else. The server leaves it out of the
+        response entirely, so there is nothing to find in the page source.
       </p>
     </section>
   )
@@ -165,6 +175,12 @@ function ProfileForm({
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
+
+    if (interests.length < MIN_INTERESTS) {
+      onError(`Pick at least ${MIN_INTERESTS} interests so your feed keeps working.`)
+      return
+    }
+
     setSaving(true)
 
     try {
@@ -196,9 +212,7 @@ function ProfileForm({
   return (
     <section className="card">
       <h2>Edit profile</h2>
-      <p className="muted">
-        Your email and phone number are never shown to other people.
-      </p>
+      <p className="muted">Your email is never shown to other people.</p>
 
       <form onSubmit={handleSubmit}>
         <div className="field">
@@ -213,19 +227,12 @@ function ProfileForm({
         </div>
 
         <div className="field">
-          <label>Email</label>
-          <input type="email" value={currentUser.email ?? ''} disabled />
+          <label htmlFor="p-email">Email</label>
+          <input id="p-email" type="email" value={currentUser.email ?? ''} disabled />
           <small className="field-hint">
             Only visible to you. Email cannot be changed.
           </small>
         </div>
-
-        {currentUser.phoneNumber && (
-          <div className="field">
-            <label>Phone</label>
-            <input type="tel" value={currentUser.phoneNumber} disabled />
-          </div>
-        )}
 
         <div className="field">
           <label htmlFor="p-edu">Education</label>
@@ -243,11 +250,11 @@ function ProfileForm({
         </div>
 
         <div className="field">
-          <label>Interests</label>
           <TopicPicker
             selected={interests}
             onChange={setInterests}
-            max={10}
+            label="Interests"
+            max={MAX_INTERESTS}
             placeholder="Search topics you want in your feed..."
           />
           <small className="field-hint">
@@ -302,6 +309,22 @@ function ChangePassword({ onSuccess }: { onSuccess: () => void }) {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [visible, setVisible] = useState(false)
+
+  /*
+   * The same check signup runs, from the same file.
+   *
+   * This form used to enforce its own rule - "at least 6 characters" - while
+   * the server enforces eight and refuses the few hundred most common
+   * passwords. So a seven-character password passed here and was rejected
+   * there, and the message you got back was not the one you had just been
+   * shown. The form was, in effect, giving out wrong information about the
+   * rules.
+   *
+   * passwordStrength mirrors PasswordPolicy.java. One rule, stated in one
+   * place, and the two forms cannot drift apart again.
+   */
+  const strength = passwordStrength(next)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -312,8 +335,8 @@ function ChangePassword({ onSuccess }: { onSuccess: () => void }) {
       return
     }
 
-    if (next.length < 6) {
-      setError('New password must be at least 6 characters.')
+    if (!strength.acceptable) {
+      setError(strength.problem!)
       return
     }
 
@@ -348,38 +371,49 @@ function ChangePassword({ onSuccess }: { onSuccess: () => void }) {
 
           <div className="field">
             <label htmlFor="cp-current">Current password</label>
-            <input
+            <PasswordInput
               id="cp-current"
-              type="password"
               value={current}
-              onChange={(e) => setCurrent(e.target.value)}
+              onChange={setCurrent}
               autoComplete="current-password"
               required
+              visible={visible}
+              onToggleVisible={() => setVisible((v) => !v)}
             />
           </div>
 
           <div className="field">
             <label htmlFor="cp-new">New password</label>
-            <input
+            <PasswordInput
               id="cp-new"
-              type="password"
               value={next}
-              onChange={(e) => setNext(e.target.value)}
+              onChange={setNext}
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
               autoComplete="new-password"
               required
+              visible={visible}
+              onToggleVisible={() => setVisible((v) => !v)}
             />
+            {/* Say what is wrong while they type, not after they submit. */}
+            {next.length > 0 && !strength.acceptable && (
+              <small className="field-hint">{strength.problem}</small>
+            )}
           </div>
 
           <div className="field">
             <label htmlFor="cp-confirm">Confirm new password</label>
-            <input
+            <PasswordInput
               id="cp-confirm"
-              type="password"
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={setConfirm}
               autoComplete="new-password"
               required
+              visible={visible}
+              onToggleVisible={() => setVisible((v) => !v)}
             />
+            {confirm.length > 0 && next !== confirm && (
+              <small className="field-hint">These do not match.</small>
+            )}
           </div>
 
           <button type="submit" className="btn" disabled={saving}>

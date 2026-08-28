@@ -502,6 +502,35 @@ textarea {
   margin-top: 1.25rem;
 }
 
+/* --- Password strength meter --- */
+
+.strength {
+  margin-top: 0.4rem;
+}
+
+.strength-bars {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 0.25rem;
+}
+
+.strength-bar {
+  height: 3px;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background 0.2s ease;
+}
+
+/*
+ * Colour by the score reached, not per-bar, so the whole meter reads as one
+ * judgement rather than four separate ones.
+ */
+.strength-bar.level-1 { background: var(--danger); }
+.strength-bar.level-2 { background: var(--accent); }
+.strength-bar.level-3 { background: var(--success); }
+.strength-bar.level-4 { background: var(--success); }
+
 /* --- Cards --- */
 
 .card {
@@ -899,13 +928,29 @@ textarea {
 
 .hero-sub {
   max-width: 560px;
-  margin: 0 auto 2rem;
+  margin: 0 auto 1rem;
   color: var(--text-muted);
   font-size: 1.05rem;
 }
 
+.hero-emphasis {
+  /* "You're not the only one" - the line that does the emotional work. */
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.home-closing {
+  text-align: center;
+  padding: 0 1rem 3rem;
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .hero-actions {
   display: flex;
+  margin-top: 1.5rem;
   gap: 0.75rem;
   justify-content: center;
   flex-wrap: wrap;
@@ -1388,42 +1433,7 @@ textarea {
   border-top: 1px solid var(--border);
 }
 
-/* --- AI answers --- */
-
-/*
- * An AI answer is deliberately marked, never blended in.
- *
- * A reader weighs a machine's answer differently from a person's, and they can
- * only do that if they can tell which is which at a glance.
- */
-.comment.ai .comment-body {
-  background: color-mix(in srgb, var(--brand) 8%, var(--surface-2));
-  border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
-}
-
-.ai-badge-avatar {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--brand-soft);
-  font-size: 0.9rem;
-  flex: 0 0 auto;
-}
-
-.ai-tag {
-  padding: 0.05rem 0.4rem;
-  border-radius: 999px;
-  background: var(--brand);
-  color: #fff;
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* --- Rendered markdown (AI answers) --- */
+/* --- Rendered markdown (the assistant's replies) --- */
 
 .markdown > * + * {
   margin-top: 0.6rem;
@@ -1829,6 +1839,65 @@ textarea {
 .ai-input input,
 .ai-input textarea {
   flex: 1;
+}
+
+/* --- Assistant: starters and conversation actions --- */
+
+/*
+ * Starter prompts on an empty conversation. They fill the input rather than
+ * sending, so people see what is possible and still write it themselves.
+ */
+.starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.starter {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.starter:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+/*
+ * Actions ON the conversation, shown only once there is a conversation.
+ * These replaced the old mode tabs - modes you could get stuck in, applied to
+ * whatever you typed next. These apply to what has already been said.
+ */
+.ai-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.ai-actions-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 0.15rem;
+}
+
+/* The assistant's own replies render as markdown inside the bubble. */
+.bubble .markdown p {
+  font-size: 0.9rem;
 }
 
 /* --- Server wake-up banner --- */
