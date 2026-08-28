@@ -89,9 +89,6 @@ public class PostResponse {
     /* Whether the asker has marked a question answered. */
     private boolean resolved;
 
-    /* True when the AI has already replied, so the UI never offers it twice. */
-    private boolean hasAiAnswer;
-
     /* Every topic this post is tagged with, in display form. */
     private List<String> topics = new ArrayList<>();
 

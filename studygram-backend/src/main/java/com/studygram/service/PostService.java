@@ -15,11 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /*
@@ -205,9 +203,6 @@ public class PostService {
             commentCounts.put((Long) row[0], ((Number) row[1]).intValue());
         }
 
-        // ONE query: which posts the AI has already answered
-        Set<Long> withAiAnswer = new HashSet<>(commentRepository.findPostIdsWithAiAnswer(posts));
-
         // ONE query: postId -> list of usernames who found it helpful
         Map<Long, List<String>> helpfulUsers = new HashMap<>();
         for (Object[] row : helpfulRepository.findUsernamesByPosts(posts)) {
@@ -227,7 +222,6 @@ public class PostService {
                     response.setHelpfulUsers(
                             helpfulUsers.getOrDefault(post.getId(), List.of())
                     );
-                    response.setHasAiAnswer(withAiAnswer.contains(post.getId()));
                     return response;
                 })
                 .collect(Collectors.toList());

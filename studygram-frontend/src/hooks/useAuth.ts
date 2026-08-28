@@ -159,6 +159,19 @@ export function useAuth() {
   const logout = useCallback(() => {
     setAuthToken(null)
     setUser(null)
+
+    /*
+     * Throw away the assistant conversation too.
+     *
+     * It is private, and it may contain what somebody was struggling with.
+     * Logging out on a shared computer has to leave nothing behind for the
+     * next person - the token, the profile and the chat all go together.
+     */
+    try {
+      sessionStorage.removeItem('studygram.assistant')
+    } catch {
+      // Storage unavailable; nothing was stored either.
+    }
   }, [])
 
   /* Used after a profile edit, to refresh the cached copy. */

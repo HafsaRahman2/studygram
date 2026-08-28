@@ -1,5 +1,6 @@
 package com.studygram.controller;
 
+import com.studygram.dto.AiChatRequest;
 import com.studygram.service.AIService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -8,13 +9,32 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /*
- * AIController - API endpoints for AI Study Assistant
+ * AIController - The study assistant
  *
  * Endpoints:
- *   POST /api/ai/chat      → General chat with AI
- *   POST /api/ai/explain   → Explain a topic
- *   POST /api/ai/practice  → Generate practice questions
- *   POST /api/ai/summarize → Summarize text
+ *   POST /api/ai/chat      → continue the conversation
+ *   POST /api/ai/summarize → revision notes on what has been discussed
+ *   POST /api/ai/practice  → practice questions on what has been discussed
+ *
+ * ALL THREE TAKE THE CONVERSATION, NOT A TOPIC.
+ *
+ * That is the difference between this and what was here before. The old
+ * endpoints each took one string - a topic to explain, text to summarise - so
+ * every request stood alone and the assistant could not answer "give me an
+ * example" because it had no idea what of.
+ *
+ * Now the client sends the history, and "summarise this" and "test me on this"
+ * finally have a "this" to refer to.
+ *
+ * WHAT WAS DELETED
+ *
+ * /api/ai/explain took a topic and explained it - which is just chatting, so it
+ * earned nothing. The old /practice and /summarize took a topic and a blob of
+ * text respectively; both are replaced by the conversation-aware versions here.
+ *
+ * They were removed rather than left in place. An endpoint nothing calls is an
+ * endpoint nobody reviews, which is exactly how the password hashes ended up
+ * being served from /api/buddies/pending for months.
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -23,133 +43,93 @@ public class AIController {
     @Autowired
     private AIService aiService;
 
+    /* Practice questions, when the client does not say how many. */
+    private static final int DEFAULT_PRACTICE_QUESTIONS = 5;
+
     /*
-     * CHAT - General conversation with AI
+     * CONTINUE THE CONVERSATION
      *
-     * URL: POST /api/ai/chat
+     * Body: { "messages": [ {"role":"user","content":"..."},
+     *                       {"role":"ai","content":"..."} ] }
      *
-     * Request body:
-     * {
-     *   "message": "What is recursion?"
-     * }
-     *
-     * Response:
-     * {
-     *   "response": "Recursion is when a function calls itself..."
-     * }
+     * Oldest first, with the new message last.
      */
     @PostMapping("/chat")
-    public ResponseEntity<?> chat(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> chat(@RequestBody AiChatRequest request) {
         try {
 
-            String message = request.get("message");
-
-            if (message == null || message.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Message cannot be empty");
+            if (request.getMessages() == null || request.getMessages().isEmpty()) {
+                return ResponseEntity.badRequest().body("Say something first");
             }
 
-            String response = aiService.chat(message);
+            return ResponseEntity.ok(Map.of("response", aiService.chat(request.getMessages())));
 
-            return ResponseEntity.ok(Map.of("response", response));
+        } catch (AIService.AiUnavailableException e) {
+            /*
+             * 503, not 500. The assistant being unreachable is a temporary
+             * condition of a dependency, not a bug in this request - and the
+             * status code should say which, because a client can sensibly retry
+             * one and not the other.
+             */
+            return ResponseEntity.status(503).body(e.getMessage());
 
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("AI service error: " + e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
     /*
-     * EXPLAIN - Get explanation of a topic
+     * REVISION NOTES ON THIS CONVERSATION
      *
-     * URL: POST /api/ai/explain
-     *
-     * Request body:
-     * {
-     *   "topic": "binary search trees"
-     * }
-     */
-    @PostMapping("/explain")
-    public ResponseEntity<?> explain(@RequestBody Map<String, String> request) {
-        try {
-
-            String topic = request.get("topic");
-
-            if (topic == null || topic.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Topic cannot be empty");
-            }
-
-            String response = aiService.explain(topic);
-
-            return ResponseEntity.ok(Map.of(
-                    "topic", topic,
-                    "explanation", response
-            ));
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("AI service error: " + e.getMessage());
-        }
-    }
-
-    /*
-     * PRACTICE - Generate practice questions
-     *
-     * URL: POST /api/ai/practice
-     *
-     * Request body:
-     * {
-     *   "topic": "sorting algorithms",
-     *   "count": 5
-     * }
-     */
-    @PostMapping("/practice")
-    public ResponseEntity<?> practice(@RequestBody Map<String, Object> request) {
-        try {
-
-            String topic = (String) request.get("topic");
-            Integer count = (Integer) request.getOrDefault("count", 5);
-
-            if (topic == null || topic.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Topic cannot be empty");
-            }
-
-            String response = aiService.generatePracticeQuestions(topic, count);
-
-            return ResponseEntity.ok(Map.of(
-                    "topic", topic,
-                    "questionCount", count,
-                    "questions", response
-            ));
-
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("AI service error: " + e.getMessage());
-        }
-    }
-
-    /*
-     * SUMMARIZE - Summarize notes or text
-     *
-     * URL: POST /api/ai/summarize
-     *
-     * Request body:
-     * {
-     *   "text": "Long notes about data structures..."
-     * }
+     * "We have been going back and forth about recursion for ten minutes -
+     * write that down so I can revise from it."
      */
     @PostMapping("/summarize")
-    public ResponseEntity<?> summarize(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> summarize(@RequestBody AiChatRequest request) {
         try {
 
-            String text = request.get("text");
-
-            if (text == null || text.trim().isEmpty()) {
-                return ResponseEntity.badRequest().body("Text cannot be empty");
+            if (request.getMessages() == null || request.getMessages().isEmpty()) {
+                return ResponseEntity.badRequest().body("There is nothing to summarise yet");
             }
 
-            String response = aiService.summarize(text);
+            return ResponseEntity.ok(Map.of(
+                    "response", aiService.summarizeConversation(request.getMessages())));
 
-            return ResponseEntity.ok(Map.of("summary", response));
+        } catch (AIService.AiUnavailableException e) {
+            return ResponseEntity.status(503).body(e.getMessage());
 
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("AI service error: " + e.getMessage());
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /*
+     * PRACTICE QUESTIONS ON THIS CONVERSATION
+     *
+     * "Now test me on what we just went through."
+     */
+    @PostMapping("/practice")
+    public ResponseEntity<?> practice(@RequestBody AiChatRequest request) {
+        try {
+
+            if (request.getMessages() == null || request.getMessages().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body("Chat about something first, then I can test you on it");
+            }
+
+            int count = request.getCount() == null
+                    ? DEFAULT_PRACTICE_QUESTIONS
+                    // Math.clamp is Java 21; this project targets 17.
+                    : Math.max(1, Math.min(request.getCount(), 10));
+
+            return ResponseEntity.ok(Map.of(
+                    "response", aiService.practiceFromConversation(request.getMessages(), count)));
+
+        } catch (AIService.AiUnavailableException e) {
+            return ResponseEntity.status(503).body(e.getMessage());
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 

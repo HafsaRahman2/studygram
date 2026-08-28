@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { comments as commentsApi } from '../api'
 import type { Comment, User } from '../types'
 import { timeAgo } from '../utils/format'
-import { renderMarkdown } from '../utils/markdown'
 import { Avatar, Message, Spinner } from './ui'
 
 /*
@@ -151,45 +150,18 @@ export function CommentSection({
 
       <ul className="comment-list">
         {comments.map((comment) => (
-          <li key={comment.id} className={`comment ${comment.aiGenerated ? 'ai' : ''}`}>
-            {comment.aiGenerated ? (
-              <div className="ai-badge-avatar" aria-hidden="true">
-                🎓
-              </div>
-            ) : (
-              <Avatar name={comment.authorName} size={32} />
-            )}
+          <li key={comment.id} className="comment">
+            <Avatar name={comment.authorName} size={32} />
 
             <div className="comment-body">
               <div className="comment-head">
                 <span className="comment-author">
-                  {comment.aiGenerated
-                    ? 'StudyGram AI'
-                    : comment.anonymous
-                      ? 'Anonymous'
-                      : `@${comment.authorUsername}`}
+                  {comment.anonymous ? 'Anonymous' : `@${comment.authorUsername}`}
                 </span>
-
-                {/*
-                  Never let an AI answer be mistaken for a person's. A reader
-                  weighs the two differently, and blurring that would be the
-                  most dishonest thing this app could do.
-                */}
-                {comment.aiGenerated && <span className="ai-tag">AI generated</span>}
-
                 <span className="comment-time">{timeAgo(comment.createdAt)}</span>
               </div>
 
-              {/*
-                AI answers arrive as Markdown. Rendered through our own
-                converter, which emits React elements rather than HTML - so
-                nothing a model writes can inject anything into the page.
-              */}
-              {comment.aiGenerated ? (
-                <div className="comment-text">{renderMarkdown(comment.content)}</div>
-              ) : (
-                <p className="comment-text">{comment.content}</p>
-              )}
+              <p className="comment-text">{comment.content}</p>
             </div>
 
             {/* The server decided whether this viewer may delete - see
@@ -210,3 +182,4 @@ export function CommentSection({
     </div>
   )
 }
+

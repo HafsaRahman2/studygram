@@ -35,17 +35,6 @@ public class CommentResponse {
     private boolean canDelete;
 
     private boolean anonymous;
-
-    /*
-     * True when the AI assistant wrote this, not a person.
-     *
-     * Always shown in the UI. A reader must be able to tell at a glance whether
-     * a human or a language model answered - those carry different kinds of
-     * trust, and blurring the two would be the most dishonest thing this app
-     * could do.
-     */
-    private boolean aiGenerated;
-
     private LocalDateTime createdAt;
 
     /*
@@ -61,23 +50,8 @@ public class CommentResponse {
         response.setContent(comment.getContent());
         response.setCreatedAt(comment.getCreatedAt());
         response.setAnonymous(comment.isAnonymous());
-        response.setAiGenerated(comment.isAiGenerated());
 
         Long postOwnerId = comment.getPost().getUser().getId();
-
-        /*
-         * An AI answer has no author at all - comment.getUser() is null, which
-         * is why every branch below has to check before dereferencing it.
-         * Only the post owner can remove one.
-         */
-        if (comment.getUser() == null) {
-            response.setAuthorId(null);
-            response.setAuthorName("StudyGram AI");
-            response.setAuthorUsername(null);
-            response.setCanDelete(viewerId != null && viewerId.equals(postOwnerId));
-            return response;
-        }
-
         Long commentOwnerId = comment.getUser().getId();
 
         response.setCanDelete(
