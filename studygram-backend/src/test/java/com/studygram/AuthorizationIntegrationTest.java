@@ -121,10 +121,63 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
                                 "name", "Carol",
                                 "username", "carol",
                                 "email", "carol@test.com",
-                                "password", PASSWORD))))
+                                "password", PASSWORD,
+                                // Required now - the personalized feed needs them
+                                "interests", "Programming, Mathematics"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").isNotEmpty())
                 .andExpect(jsonPath("$.user.username").value("carol"));
+    }
+
+    @Test
+    @DisplayName("signup refuses a weak password")
+    void signupRejectsWeakPassword() throws Exception {
+        mockMvc.perform(post("/api/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "Weak",
+                                "username", "weak",
+                                "email", "weak@test.com",
+                                "password", "password123",   // top of every breach list
+                                "interests", "Programming, Mathematics"))))
+                .andExpect(status().isBadRequest());
+
+        assertThat(userRepository.findByUsername("weak")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("signup requires at least two interests")
+    void signupRequiresInterests() throws Exception {
+        /*
+         * Enforced on the SERVER, not just in the form.
+         *
+         * Interests drive the personalized feed. Without them a new account's
+         * "For you" tab is empty on arrival, so this is a product rule worth
+         * holding even for someone calling the API directly.
+         */
+        mockMvc.perform(post("/api/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "name", "Nobody",
+                                "username", "nobody",
+                                "email", "nobody@test.com",
+                                "password", PASSWORD,
+                                "interests", "Programming"))))   // only one
+                .andExpect(status().isBadRequest());
+
+        assertThat(userRepository.findByUsername("nobody")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("changing your password is held to the same rules as signup")
+    void changePasswordUsesTheSamePolicy() throws Exception {
+        mockMvc.perform(post("/api/change-password")
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "currentPassword", PASSWORD,
+                                "newPassword", "12345678"))))
+                .andExpect(status().isBadRequest());
     }
 
     /* ================================================================
@@ -164,6 +217,25 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(
                                 Map.of("email", "alice@test.com"))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("the topic list is public, but posts inside a community are NOT")
+    void topicListIsPublicButPostsAreNot() throws Exception {
+        /*
+         * The signup form needs the topic list before the user has an account,
+         * so GET /api/communities is deliberately public.
+         *
+         * The danger is opening one segment too wide. "/api/communities/**"
+         * would have looked like the same fix and would have exposed
+         * /api/communities/{name}/posts - real posts, to anybody on the
+         * internet. This test is here so that mistake cannot be made quietly.
+         */
+        mockMvc.perform(get("/api/communities"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/communities/programming/posts"))
+                .andExpect(status().isUnauthorized());
     }
 
     /* ================================================================
@@ -268,7 +340,7 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "userId", alice.getId(),   // ignored
                                 "currentPassword", PASSWORD,
-                                "newPassword", "hacked123"))));
+                                "newPassword", "hacked-9142"))));
 
         assertThat(userRepository.findById(alice.getId()).orElseThrow().getPassword())
                 .as("Alice's password hash must be unchanged")

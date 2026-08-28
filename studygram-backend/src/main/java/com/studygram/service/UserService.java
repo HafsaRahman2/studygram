@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,6 +47,10 @@ public class UserService {
      * How long a password reset token stays valid.
      */
     private static final int RESET_TOKEN_MINUTES = 30;
+
+    /* Interests required at signup, so the personalized feed works immediately. */
+    private static final int MIN_INTERESTS = 2;
+    private static final int MAX_INTERESTS = 5;
 
     /*
      * BCryptPasswordEncoder - hashes passwords for security
@@ -83,6 +88,39 @@ public class UserService {
         // Validation: phone must be unique (if provided)
         if (user.getPhoneNumber() != null && userRepository.existsByPhoneNumber(user.getPhoneNumber())) {
             throw new RuntimeException("Phone number already registered");
+        }
+
+        /*
+         * Password strength, checked on the SERVER.
+         *
+         * The signup form checks this too, but that is a courtesy for people
+         * using the form. Anyone can POST to this endpoint directly, so the
+         * rule that actually holds is this one.
+         */
+        PasswordPolicy.validate(user.getPassword(), user.getUsername(), user.getEmail());
+
+        /*
+         * INTERESTS ARE REQUIRED AT SIGNUP, and that is a product decision worth
+         * explaining.
+         *
+         * Interests drive the personalized feed. Without them, a new user signs
+         * up, lands on the feed, opens "For you" - and finds it empty, because
+         * there is nothing to match against. The app's best feature would be
+         * broken for every single new account until they happened to wander
+         * into their profile and fill something in.
+         *
+         * One extra step at signup means the app works from the first screen.
+         */
+        List<String> interests = PostService.parseTopics(user.getInterests());
+
+        if (interests.size() < MIN_INTERESTS) {
+            throw new RuntimeException(
+                    "Please choose at least " + MIN_INTERESTS + " interests so we can build your feed");
+        }
+
+        if (interests.size() > MAX_INTERESTS) {
+            throw new RuntimeException(
+                    "Please choose no more than " + MAX_INTERESTS + " interests");
         }
 
         // Security: hash the password before saving
@@ -154,6 +192,33 @@ public class UserService {
 
         User user = getUserById(userId);
 
+        /*
+         * Interests obey the same two-to-five rule here as they do at signup.
+         *
+         * They were checked only on the way in. Once you had an account the
+         * profile would happily save an empty list, and the personalized feed
+         * then had nothing to match on and stayed empty for good - a setting
+         * you could quietly break with no warning and no way to tell that you
+         * had. The reverse held too: the profile accepted ten interests that
+         * signup would have refused.
+         *
+         * Checked only when interests are actually being changed, since every
+         * field here is optional and a null means "leave this alone".
+         */
+        if (interests != null) {
+            List<String> chosen = PostService.parseTopics(interests);
+
+            if (chosen.size() < MIN_INTERESTS) {
+                throw new RuntimeException(
+                        "Please keep at least " + MIN_INTERESTS + " interests so your feed keeps working");
+            }
+
+            if (chosen.size() > MAX_INTERESTS) {
+                throw new RuntimeException(
+                        "Please choose no more than " + MAX_INTERESTS + " interests");
+            }
+        }
+
         // Update profile info if provided
         if (name != null) user.setName(name);
         if (education != null) user.setEducation(education);
@@ -186,6 +251,9 @@ public class UserService {
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
             throw new RuntimeException("Current password is incorrect");
         }
+
+        // Same strength rules as signup - one policy, three call sites.
+        PasswordPolicy.validate(newPassword, user.getUsername(), user.getEmail());
 
         // Hash and set new password
         String hashedPassword = passwordEncoder.encode(newPassword);
@@ -257,10 +325,6 @@ public class UserService {
     @Transactional
     public void resetPasswordWithToken(String token, String newPassword) {
 
-        if (newPassword == null || newPassword.length() < 6) {
-            throw new RuntimeException("Password must be at least 6 characters");
-        }
-
         PasswordResetToken resetToken = resetTokenRepository.findByToken(token)
                 .orElseThrow(() -> new RuntimeException("Invalid or expired reset token"));
 
@@ -272,6 +336,11 @@ public class UserService {
         }
 
         User user = resetToken.getUser();
+
+        // Checked after the token, so an invalid token never reveals whether a
+        // password would have been acceptable.
+        PasswordPolicy.validate(newPassword, user.getUsername(), user.getEmail());
+
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 

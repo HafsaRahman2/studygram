@@ -122,6 +122,23 @@ public class SecurityConfig {
 
                     .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
 
+                    /*
+                     * The topic list, and ONLY the list.
+                     *
+                     * The signup form asks new users to choose interests, and it
+                     * cannot show them the options if fetching them requires an
+                     * account they have not created yet. This is 64 seeded topic
+                     * names - no user data, nothing private.
+                     *
+                     * NOTE THE EXACT PATH. It is deliberately NOT
+                     * "/api/communities/**", because that would also expose
+                     * /api/communities/{name}/posts - real posts by real people,
+                     * to anyone at all. Opening a path one segment too wide is
+                     * exactly how this kind of fix goes wrong, so there is a test
+                     * asserting that sub-path is still protected.
+                     */
+                    .requestMatchers(HttpMethod.GET, "/api/communities").permitAll()
+
                     // Everything else needs a valid token.
                     .anyRequest().authenticated()
             )

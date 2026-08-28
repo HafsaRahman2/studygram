@@ -53,7 +53,12 @@ public abstract class IntegrationTestBase {
     @Autowired protected StudyBuddyRepository studyBuddyRepository;
     @Autowired protected BCryptPasswordEncoder passwordEncoder;
 
-    protected static final String PASSWORD = "password123";
+    /*
+     * Deliberately NOT "password123" - which is what this used to be, and which
+     * the password policy now rejects as one of the most common passwords in
+     * existence. The test suite has to obey the same rules as everyone else.
+     */
+    protected static final String PASSWORD = "test-run-9142";
 
     /*
      * Runs before every test in every subclass.

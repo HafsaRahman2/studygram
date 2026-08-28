@@ -2,14 +2,18 @@ import { useState } from 'react'
 import { auth, setAuthToken } from '../api'
 import type { Page, User } from '../types'
 import { Message, PasswordInput } from './ui'
+import { TopicPicker } from './TopicPicker'
+import { passwordStrength, MIN_PASSWORD_LENGTH } from '../utils/password'
+
+/* Mirrors UserService.MIN_INTERESTS / MAX_INTERESTS on the server. */
+const MIN_INTERESTS = 2
+const MAX_INTERESTS = 5
 
 /*
  * The three screens you can reach while logged out: Login, Signup and the
  * password reset flow. Grouped in one file because they share a layout, a
  * visual style, and a set of links between each other.
  */
-
-const MIN_PASSWORD_LENGTH = 6
 
 /* ----------------------------------------------------------------- Login */
 
@@ -58,14 +62,14 @@ export function Login({
 
       <form onSubmit={handleSubmit}>
         <div className="field">
-          <label htmlFor="login-id">Email or phone</label>
+          <label htmlFor="login-id">Email</label>
           <input
             id="login-id"
             type="text"
             value={emailOrPhone}
             onChange={(e) => setEmailOrPhone(e.target.value)}
             placeholder="you@example.com"
-            autoComplete="username"
+            autoComplete="email"
             required
           />
         </div>
@@ -116,9 +120,18 @@ export function Signup({
   const [name, setName] = useState('')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+
+  /*
+   * Interests are collected HERE rather than left to the profile page.
+   *
+   * They drive the personalized feed. Ask for them later and every new user's
+   * "For you" tab is empty on their first visit - the best feature in the app,
+   * broken for everyone who has just arrived.
+   */
+  const [interests, setInterests] = useState<string[]>([])
+
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -132,8 +145,14 @@ export function Signup({
       return
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
+    const strength = passwordStrength(password)
+    if (!strength.acceptable) {
+      setError(strength.problem!)
+      return
+    }
+
+    if (interests.length < MIN_INTERESTS) {
+      setError(`Pick at least ${MIN_INTERESTS} interests so we can build your feed.`)
       return
     }
 
@@ -144,8 +163,9 @@ export function Signup({
         name,
         username,
         email,
-        phoneNumber: phone || null,
         password,
+        // Stored as the comma-separated string the API expects
+        interests: interests.join(', '),
       })
 
       /*
@@ -170,14 +190,14 @@ export function Signup({
    * Telling someone their password is too short after they filled in six other
    * fields is a needlessly annoying way to find out.
    */
-  const passwordTooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH
+  const strength = passwordStrength(password)
   const passwordsMismatch = confirm.length > 0 && password !== confirm
 
   return (
     <div className="auth-card">
       <h2>Create your account</h2>
       <p className="auth-sub">
-        You can add your interests, education and GitHub afterwards.
+        Takes a minute. You can add the rest to your profile later.
       </p>
 
       <Message kind="error" onDismiss={() => setError('')}>
@@ -223,19 +243,6 @@ export function Signup({
         </div>
 
         <div className="field">
-          <label htmlFor="signup-phone">
-            Phone <span className="optional">optional</span>
-          </label>
-          <input
-            id="signup-phone"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            autoComplete="tel"
-          />
-        </div>
-
-        <div className="field">
           <label htmlFor="signup-password">Password</label>
           <PasswordInput
             id="signup-password"
@@ -247,10 +254,20 @@ export function Signup({
             visible={showPassword}
             onToggleVisible={() => setShowPassword((v) => !v)}
           />
-          {passwordTooShort && (
-            <small className="field-error">
-              {MIN_PASSWORD_LENGTH - password.length} more characters needed
-            </small>
+          {password.length > 0 && (
+            <div className="strength">
+              <div className="strength-bars" aria-hidden="true">
+                {[0, 1, 2, 3].map((i) => (
+                  <span
+                    key={i}
+                    className={`strength-bar ${i < strength.score ? `level-${strength.score}` : ''}`}
+                  />
+                ))}
+              </div>
+              <small className={strength.acceptable ? 'field-hint' : 'field-error'}>
+                {strength.problem ?? strength.label}
+              </small>
+            </div>
           )}
         </div>
 
@@ -269,6 +286,20 @@ export function Signup({
           {passwordsMismatch && (
             <small className="field-error">Passwords do not match</small>
           )}
+        </div>
+
+        <div className="field">
+          <label>What are you studying?</label>
+          <TopicPicker
+            selected={interests}
+            onChange={setInterests}
+            max={MAX_INTERESTS}
+            placeholder="Search subjects you want in your feed..."
+          />
+          <small className="field-hint">
+            Pick {MIN_INTERESTS}–{MAX_INTERESTS}. This is what your feed gets built from —
+            you can change it any time.
+          </small>
         </div>
 
         <button type="submit" className="btn btn-block" disabled={submitting}>
@@ -342,8 +373,9 @@ export function ForgotPassword({ onNavigate }: { onNavigate: (page: Page) => voi
       return
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`)
+    const resetStrength = passwordStrength(password)
+    if (!resetStrength.acceptable) {
+      setError(resetStrength.problem!)
       return
     }
 
