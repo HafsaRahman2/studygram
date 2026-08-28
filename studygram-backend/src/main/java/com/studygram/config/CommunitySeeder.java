@@ -57,7 +57,19 @@ public class CommunitySeeder implements CommandLineRunner {
                 "Programming", "Web Development", "Mobile Development", "Data Science",
                 "Machine Learning", "Artificial Intelligence", "Cybersecurity",
                 "Cloud Computing", "DevOps", "Blockchain", "Game Development",
-                "UI/UX Design"
+                /*
+                 * "UX Design", not "UI/UX Design".
+                 *
+                 * A community's name is its lowercased display name, and that name
+                 * goes into a URL: /api/communities/{name}/posts. A slash inside it
+                 * is not data, it is another path segment - so this one topic, alone
+                 * out of 65, was unreachable from Browse topics.
+                 *
+                 * Escaping does not save it either: Spring rejects encoded slashes
+                 * in paths by default, and that default is a path-traversal guard
+                 * worth keeping. Renaming one topic is the cheaper trade.
+                 */
+                "UX Design"
         ));
         TOPICS_BY_CATEGORY.put("Sciences", List.of(
                 "Mathematics", "Physics", "Chemistry", "Biology", "Statistics",

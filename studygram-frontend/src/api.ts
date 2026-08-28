@@ -14,6 +14,7 @@
  */
 
 import type {
+  AiMessage,
   AuthResult,
   BreakStatus,
   BuddyRequest,
@@ -192,8 +193,22 @@ async function request<T>(
      * Login and signup are excluded: a 401 there means "wrong password", which
      * the form should display, not a dead session.
      */
+    /*
+     * Only treat a 401 as "your session died" if we actually HAD a session.
+     *
+     * Without the authToken check, any 401 while logged out triggered a
+     * redirect to the login page - including the perfectly ordinary one from
+     * the signup form fetching the topic list before you have an account. The
+     * result was that clicking "Sign up" bounced you straight to "Log in", and
+     * the cause looked nothing like the symptom.
+     *
+     * A 401 when you were never logged in is just an endpoint telling you it
+     * needs a login. It is not a session expiring, and it should not log
+     * anybody out.
+     */
     if (
       response.status === 401 &&
+      authToken &&
       !path.startsWith('/api/login') &&
       !path.startsWith('/api/signup')
     ) {
@@ -250,8 +265,9 @@ export const auth = {
     name: string
     username: string
     email: string
-    phoneNumber: string | null
     password: string
+    /* Comma-separated. Required: the server rejects fewer than two. */
+    interests: string
   }) {
     return request<AuthResult>('/api/signup', { method: 'POST', body: data })
   },
@@ -335,16 +351,6 @@ export const posts = {
     return request<Post>('/api/posts', { method: 'POST', body: data })
   },
 
-  /*
-   * Ask the AI to answer a question.
-   *
-   * Separate from creating the post because generation takes seconds - the
-   * post appears instantly and the answer arrives after, so the UI can show
-   * that it is thinking rather than freezing the whole compose step.
-   */
-  aiAnswer(postId: number) {
-    return request<Comment>(`/api/posts/${postId}/ai-answer`, { method: 'POST' })
-  },
 
   /* Mark a question answered, or un-mark it. Asker only. */
   toggleResolved(postId: number) {
@@ -387,8 +393,14 @@ export const communities = {
     return request<Community[]>('/api/communities')
   },
 
+  /*
+   * Topic names are real words with spaces in them ("web development"), not
+   * slugs, so they have to be escaped before going into a URL. Dropping a raw
+   * label into a path string works right up until one of them contains a
+   * character the URL grammar already uses.
+   */
   postsIn(name: string) {
-    return request<Post[]>(`/api/communities/${name}/posts`)
+    return request<Post[]>(`/api/communities/${encodeURIComponent(name)}/posts`)
   },
 }
 
@@ -489,33 +501,36 @@ export const breaks = {
 
 /* -------------------------------------------------------------------- ai */
 
+/*
+ * All three take the CONVERSATION, not a topic.
+ *
+ * The model remembers nothing between calls, so the history travels with every
+ * request. That is what lets a follow-up like "give me an example" work at all,
+ * and what gives "summarise this" something to refer to.
+ */
 export const ai = {
-  chat(message: string) {
+  /* Continue the conversation. Oldest message first, newest last. */
+  chat(messages: AiMessage[]) {
     return request<{ response: string }>('/api/ai/chat', {
       method: 'POST',
-      body: { message },
+      body: { messages },
     }).then((r) => r.response)
   },
 
-  explain(topic: string) {
-    return request<{ explanation: string }>('/api/ai/explain', {
+  /* Revision notes on what has been discussed so far. */
+  summarize(messages: AiMessage[]) {
+    return request<{ response: string }>('/api/ai/summarize', {
       method: 'POST',
-      body: { topic },
-    }).then((r) => r.explanation)
+      body: { messages },
+    }).then((r) => r.response)
   },
 
-  practice(topic: string, count = 5) {
-    return request<{ questions: string }>('/api/ai/practice', {
+  /* Practice questions on what has been discussed so far. */
+  practice(messages: AiMessage[], count = 5) {
+    return request<{ response: string }>('/api/ai/practice', {
       method: 'POST',
-      body: { topic, count },
-    }).then((r) => r.questions)
-  },
-
-  summarize(text: string) {
-    return request<{ summary: string }>('/api/ai/summarize', {
-      method: 'POST',
-      body: { text },
-    }).then((r) => r.summary)
+      body: { messages, count },
+    }).then((r) => r.response)
   },
 }
 

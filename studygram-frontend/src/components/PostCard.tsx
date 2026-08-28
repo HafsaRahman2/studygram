@@ -42,6 +42,42 @@ export function PostCard({
   const replyWord = isQuestion ? 'Answers' : 'Comments'
 
   /*
+   * What MARKING a post means depends on what kind of post it is.
+   *
+   * "Lifesaver" is right on a tip: somebody wrote down the thing that finally
+   * made it click, and it saved you. On a QUESTION it is backwards - the
+   * question did not save anybody, it is the thing asking to be saved.
+   *
+   * So questions get "Same here", which is the thing a stuck person actually
+   * wants to say and currently has no way to: I do not understand this either.
+   * That is worth expressing twice over - it tells the rest of the community
+   * this question is worth answering, and it tells the asker they are not the
+   * only one, which is the whole promise on the landing page.
+   *
+   * Same button, same count, same table underneath. Only the wording changes,
+   * and nobody sees both on one post.
+   */
+  const mark = isQuestion
+    ? {
+        label: 'Same here',
+        /*
+         * The icon changes SHAPE, not just colour, between the two states.
+         * .active only shifts the colour, and colour alone is not a state
+         * anybody can rely on - roughly one man in twelve cannot tell these
+         * two greens apart.
+         */
+        idle: '＋',
+        marked: '✓',
+        hint: "You're stuck on this too",
+      }
+    : {
+        label: 'Lifesaver',
+        idle: '☆',
+        marked: '★',
+        hint: 'This post got you unstuck',
+      }
+
+  /*
    * Has this user already marked the post helpful?
    *
    * The server sends the usernames of everyone who did, so the button can show
@@ -157,9 +193,10 @@ export function PostCard({
           onClick={handleHelpful}
           disabled={busy}
           aria-pressed={markedHelpful}
+          title={mark.hint}
         >
-          <span aria-hidden="true">{markedHelpful ? '★' : '☆'}</span>
-          Lifesaver
+          <span aria-hidden="true">{markedHelpful ? mark.marked : mark.idle}</span>
+          {mark.label}
           {post.helpfulCount > 0 && <span className="count">{post.helpfulCount}</span>}
         </button>
 

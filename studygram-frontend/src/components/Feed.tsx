@@ -76,6 +76,34 @@ export function Feed({ currentUser }: { currentUser: User }) {
     setMode('topic')
   }
 
+  /*
+   * Where a newly written post goes.
+   *
+   * It used to be prepended to whatever list was on screen, unconditionally.
+   * So writing a chemistry question while browsing Physics put it at the top
+   * of Physics - where it did not belong, and where it vanished on the next
+   * refresh, making it look like posting had failed.
+   *
+   * The rule now: if it belongs in what you are looking at, it appears there.
+   * If it does not, the filter clears so you land somewhere it definitely
+   * shows. Either way you always see the thing you just wrote, which is the
+   * only confirmation that really convinces anyone.
+   */
+  function handlePosted(created: Post) {
+    const belongsHere =
+      mode === 'all' ||
+      (mode === 'topic' &&
+        topic != null &&
+        created.topics.some((t) => t.toLowerCase() === topic.toLowerCase()))
+
+    if (belongsHere) {
+      setPosts((current) => [created, ...current])
+    } else {
+      setTopic(null)
+      setMode('all')
+    }
+  }
+
   function updatePost(updated: Post) {
     setPosts((current) => current.map((p) => (p.id === updated.id ? updated : p)))
   }
@@ -88,31 +116,49 @@ export function Feed({ currentUser }: { currentUser: User }) {
     <div className="feed">
       <Composer
         currentUser={currentUser}
-        onPosted={(created) => setPosts((current) => [created, ...current])}
-        onPostUpdated={updatePost}
+        onPosted={handlePosted}
       />
 
-      <div className="tabs" role="tablist">
+      {/*
+        THESE ARE FILTERS, NOT TABS.
+
+        They used to carry role="tablist" and role="tab". That markup is a
+        promise about how the control behaves: a screen reader announces
+        "tab, 1 of 3", and the user then expects arrow keys to move between
+        them and each tab to point at a panel via aria-controls. None of that
+        was implemented, so the announcement was a lie - and being told a
+        keyboard shortcut exists when it does not is worse than not being
+        told anything.
+
+        What these actually are is three toggle buttons that change what the
+        list below shows. aria-pressed says exactly that, and it is true.
+      */}
+      <div className="tabs" role="group" aria-label="Filter posts">
         <button
-          role="tab"
-          aria-selected={mode === 'all'}
+          aria-pressed={mode === 'all'}
           className={`tab ${mode === 'all' ? 'active' : ''}`}
           onClick={() => setMode('all')}
         >
           All posts
         </button>
 
+        {/*
+          Deliberately NOT disabled when you have no interests.
+
+          A disabled button cannot be focused, so a keyboard or screen reader
+          user could never reach it - and the tooltip explaining why it was
+          off was attached to the very element they could not reach. The
+          explanation was only ever visible to people who did not need it.
+
+          Now it always works, and the empty state below says what to do.
+          Signup requires 2-5 interests anyway, so this only affects accounts
+          made before that rule existed.
+        */}
         <button
-          role="tab"
-          aria-selected={mode === 'foryou'}
+          aria-pressed={mode === 'foryou'}
           className={`tab ${mode === 'foryou' ? 'active' : ''}`}
           onClick={() => setMode('foryou')}
-          disabled={!hasInterests}
-          title={
-            hasInterests
-              ? 'Posts matching your interests'
-              : 'Add interests to your profile to use this'
-          }
+          title="Posts matching your interests"
         >
           For you
         </button>
@@ -146,14 +192,18 @@ export function Feed({ currentUser }: { currentUser: User }) {
             mode === 'topic'
               ? `Nothing about ${topic} yet`
               : mode === 'foryou'
-                ? 'Nothing matching your interests yet'
+                ? hasInterests
+                  ? 'Nothing matching your interests yet'
+                  : 'Add some interests first'
                 : 'No posts yet'
           }
         >
           {mode === 'topic'
             ? 'Be the first to post about it.'
             : mode === 'foryou'
-              ? 'Try All posts, or add more interests to your profile.'
+              ? hasInterests
+                ? 'Try All posts, or add more interests to your profile.'
+                : 'For you shows posts about the subjects you care about. Add a few on your profile and this fills up.'
               : 'Share something you learned and get the feed started.'}
         </EmptyState>
       )}
@@ -188,11 +238,9 @@ export function Feed({ currentUser }: { currentUser: User }) {
 function Composer({
   currentUser,
   onPosted,
-  onPostUpdated,
 }: {
   currentUser: User
   onPosted: (post: Post) => void
-  onPostUpdated: (post: Post) => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -207,7 +255,6 @@ function Composer({
   const [content, setContent] = useState('')
   const [topics, setTopics] = useState<string[]>([])
   const [anonymous, setAnonymous] = useState(false)
-  const [askAi, setAskAi] = useState(true)
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState('')
 
@@ -233,7 +280,6 @@ function Composer({
     setContent('')
     setTopics([])
     setAnonymous(false)
-    setAskAi(true)
     setPostType('QUESTION')
     setError('')
     setOpen(false)
@@ -267,31 +313,6 @@ function Composer({
       setStatus(postType === 'QUESTION' ? 'Question posted' : 'Post shared')
       reset()
 
-      /*
-       * The post is already on screen; the AI answer is fetched afterwards.
-       *
-       * Doing it here rather than inside create() is what keeps posting
-       * instant - generating an answer takes seconds, and nobody should watch
-       * a spinner on their own post while a language model thinks.
-       */
-      if (postType === 'QUESTION' && askAi) {
-        postsApi
-          .aiAnswer(created.id)
-          .then(() =>
-            onPostUpdated({
-              ...created,
-              hasAiAnswer: true,
-              commentCount: created.commentCount + 1,
-            }),
-          )
-          .catch(() => {
-            /*
-             * The AI being down must not look like the POST failing - the
-             * question was published and is perfectly usable without it.
-             * People can still answer.
-             */
-          })
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not publish your post')
     } finally {
@@ -395,22 +416,6 @@ function Composer({
             </span>
           </label>
 
-          {/* Only on questions: an answer to "here's what I learned" is odd. */}
-          {isQuestion && (
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={askAi}
-                onChange={(e) => setAskAi(e.target.checked)}
-              />
-              <span>
-                Also get an instant AI answer
-                <small>
-                  Something to work with straight away. People can still answer.
-                </small>
-              </span>
-            </label>
-          )}
         </div>
 
         <div className="composer-actions">

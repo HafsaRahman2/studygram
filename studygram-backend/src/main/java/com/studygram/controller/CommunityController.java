@@ -3,9 +3,12 @@ package com.studygram.controller;
 import com.studygram.dto.PostResponse;
 import com.studygram.entity.Community;
 import com.studygram.entity.Post;
+import com.studygram.security.AuthenticatedUser;
 import com.studygram.service.CommunityService;
+import com.studygram.service.PostService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +30,10 @@ public class CommunityController {
 
     @Autowired
     private CommunityService communityService;
+
+    /* Used to build post responses the same way the feed does. */
+    @Autowired
+    private PostService postService;
 
     /*
      * GET ALL COMMUNITIES
@@ -85,14 +92,29 @@ public class CommunityController {
      * Returns all posts with topic = "math"
      */
     @GetMapping("/{name}/posts")
-    public ResponseEntity<?> getCommunityPosts(@PathVariable String name) {
+    public ResponseEntity<?> getCommunityPosts(
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @PathVariable String name) {
         try {
 
             List<Post> posts = communityService.getCommunityPosts(name);
 
-            List<PostResponse> response = posts.stream()
-                    .map(PostResponse::fromPost)
-                    .collect(Collectors.toList());
+            /*
+             * Build the responses through PostService, exactly like the feed does.
+             *
+             * This used to map with the bare PostResponse::fromPost, which fills in
+             * a comment count of 0, no helpful marks and no viewer. The result was
+             * that the SAME post looked different depending on how you reached it:
+             * "1 answer" in the feed, "0 answers" when browsing by topic, and your
+             * own posts lost their Delete and Mark-resolved buttons because
+             * `ownPost` was computed against a viewer of null.
+             *
+             * toResponses does it in a fixed number of queries rather than a few
+             * per post, so this is also the faster path - there was never a reason
+             * to have a second one.
+             */
+            List<PostResponse> response =
+                    postService.toResponses(posts, me == null ? null : me.id());
 
             return ResponseEntity.ok(response);
 
