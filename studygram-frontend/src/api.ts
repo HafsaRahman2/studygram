@@ -364,6 +364,15 @@ export const posts = {
     )
   },
 
+  /*
+   * Only the words and the topics. Whether a post is a question, and whether it
+   * is anonymous, are fixed when it is written - see PostService.updatePost for
+   * why - so there is deliberately no way to send them from here.
+   */
+  update(postId: number, data: { content: string; topics: string[] }) {
+    return request<Post>(`/api/posts/${postId}`, { method: 'PUT', body: data })
+  },
+
   remove(postId: number) {
     return request<string>(`/api/posts/${postId}`, { method: 'DELETE' })
   },

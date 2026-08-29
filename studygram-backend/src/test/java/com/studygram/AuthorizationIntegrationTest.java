@@ -471,4 +471,90 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
         });
     }
 
+
+    @Test
+    @DisplayName("cannot edit another user's post")
+    void cannotEditAnotherUsersPost() throws Exception {
+        /*
+         * Editing is the same authorization question as deleting, and it has a
+         * nastier failure mode: a silent rewrite. Deleting somebody's post is at
+         * least obvious afterwards. Changing the words in it, under an answer
+         * somebody already wrote, is not.
+         */
+        mockMvc.perform(put("/api/posts/" + alicePostId)
+                        .header("Authorization", bearer(bobToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Bob rewrote this",
+                                "topics", java.util.List.of("Programming")))))
+                .andExpect(status().isBadRequest());
+
+        assertThat(postRepository.findById(alicePostId).orElseThrow().getContent())
+                .as("Alice's words must be untouched")
+                .isEqualTo("Alice's post about recursion");
+    }
+
+    @Test
+    @DisplayName("editing your own post keeps its answers and marks")
+    void editingKeepsRepliesAndMarks() throws Exception {
+        /*
+         * The whole point of having an edit button. Before it existed, the only
+         * way to fix a typo was to delete and repost, which threw away every
+         * answer the post had collected.
+         */
+        mockMvc.perform(post("/api/comments")
+                        .header("Authorization", bearer(bobToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "postId", alicePostId,
+                                "content", "Here is how recursion works.",
+                                "anonymous", false))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/posts/" + alicePostId + "/helpful")
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/posts/" + alicePostId)
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Alice's post about recursion, reworded",
+                                "topics", java.util.List.of("Programming")))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").value("Alice's post about recursion, reworded"))
+                .andExpect(jsonPath("$.commentCount").value(1))
+                .andExpect(jsonPath("$.helpfulCount").value(1))
+                /* Null until edited, so the interface can say "edited". */
+                .andExpect(jsonPath("$.editedAt").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("editing cannot change who wrote a post, or whether it was anonymous")
+    void editCannotChangeAuthorshipOrAnonymity() throws Exception {
+        /*
+         * The request body is a CreatePostRequest, so a caller can put
+         * "anonymous" and "postType" in it. updatePost reads neither.
+         *
+         * Turning anonymity OFF afterwards would expose somebody who chose to
+         * post without their name - retroactively, and without being asked.
+         */
+        boolean wasAnonymous = postRepository.findById(alicePostId).orElseThrow().isAnonymous();
+
+        mockMvc.perform(put("/api/posts/" + alicePostId)
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "reworded again",
+                                "topics", java.util.List.of("Programming"),
+                                "anonymous", !wasAnonymous,
+                                "postType", "QUESTION"))))
+                .andExpect(status().isOk());
+
+        Post after = postRepository.findById(alicePostId).orElseThrow();
+        assertThat(after.isAnonymous()).as("anonymity is decided once, when posting").isEqualTo(wasAnonymous);
+        assertThat(after.getPostType()).as("people answered it as what it was").isEqualTo("SHARE");
+        assertThat(after.getUser().getId()).isEqualTo(alice.getId());
+    }
+
 }

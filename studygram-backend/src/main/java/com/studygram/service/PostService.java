@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 /*
@@ -362,6 +364,63 @@ public class PostService {
      * exists itself.
      */
     @Transactional
+    /*
+     * EDIT A POST
+     *
+     * Fixing a typo should not cost you the answers you already have. Without
+     * this the only way to change a word was to delete and repost, which throws
+     * away every answer and every Lifesaver mark the post had collected - a very
+     * steep price for a missing letter.
+     *
+     * WHAT DELIBERATELY CANNOT BE CHANGED
+     *
+     * The author, obviously. But also:
+     *
+     *   postType  - people answered it as a question; turning it into a share
+     *               afterwards leaves those answers attached to something that
+     *               no longer asks anything.
+     *
+     *   anonymous - turning anonymity OFF would expose somebody who chose to
+     *               post without their name, retroactively and without warning.
+     *               That decision is made once, when posting.
+     *
+     * Only the words and the topics move, and both are re-validated with the
+     * same rules createPost uses - a rule that applies at one door and not the
+     * other is not a rule.
+     */
+    public Post updatePost(Long postId, Long userId, String content, Set<String> topics) {
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("Post not found"));
+
+        // Ownership comes from the token, never from the request body.
+        if (!post.getUser().getId().equals(userId)) {
+            throw new RuntimeException("You can only edit your own posts");
+        }
+
+        if (content == null || content.isBlank()) {
+            throw new RuntimeException("Post content cannot be empty");
+        }
+
+        if (content.length() > MAX_POST_LENGTH) {
+            throw new RuntimeException("Post is too long (max " + MAX_POST_LENGTH + " characters)");
+        }
+
+        if (topics == null || topics.isEmpty()) {
+            throw new RuntimeException("Please choose at least one topic for your post");
+        }
+
+        if (topics.size() > MAX_TOPICS_PER_POST) {
+            throw new RuntimeException("A post can have at most " + MAX_TOPICS_PER_POST + " topics");
+        }
+
+        post.setContent(content.trim());
+        post.setTopics(topics);
+        post.setEditedAt(LocalDateTime.now());
+
+        return postRepository.save(post);
+    }
+
     public void deletePost(Long postId, Long userId) {
 
         Post post = postRepository.findById(postId)

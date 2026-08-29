@@ -59,6 +59,10 @@ export interface Post {
   ownPost: boolean
   anonymous: boolean
   createdAt: string
+
+  /* Set only if the post has been edited. Drives the "edited" marker. */
+  editedAt: string | null
+
   helpfulCount: number
   commentCount: number
   topics: string[]

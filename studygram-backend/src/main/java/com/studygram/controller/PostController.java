@@ -244,6 +244,41 @@ public class PostController {
      * Who is deleting comes from the token. Only the owner can delete a post,
      * and now the server can actually tell who the owner is.
      */
+    /*
+     * EDIT A POST
+     *
+     * URL: PUT /api/posts/5
+     * Body: { "content": "...", "topics": ["Physics"] }
+     *
+     * PUT rather than POST because this replaces the editable parts of an
+     * existing thing rather than creating a new one. The id in the URL says
+     * WHICH post; the token says who is asking, and the service refuses unless
+     * those agree.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updatePost(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AuthenticatedUser me,
+            @RequestBody CreatePostRequest request) {
+        try {
+
+            Post updated = postService.updatePost(
+                    id, me.id(), request.getContent(), request.getTopics());
+
+            /*
+             * Rebuilt through toResponses so the edited post comes back with its
+             * comment count and helpful marks intact - the client drops this
+             * straight into the list in place of the old one, and anything
+             * missing here would look to the user like it had been lost.
+             */
+            return ResponseEntity.ok(
+                    postService.toResponses(List.of(updated), me.id()).get(0));
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePost(
             @PathVariable Long id,

@@ -76,6 +76,20 @@ public class Post {
     private LocalDateTime createdAt;
 
     /*
+     * When the post was last edited, or null if it never was.
+     *
+     * Nullable on purpose: "never edited" is a real state, and null says it
+     * without needing a second boolean to mean the same thing.
+     *
+     * It exists so the interface can say "edited" next to a post. On a Q&A
+     * site that matters - somebody may have answered the ORIGINAL wording, and
+     * an answer that no longer fits the question reads as though the answerer
+     * misunderstood, when in fact the question moved underneath them.
+     */
+    @Column(name = "edited_at")
+    private LocalDateTime editedAt;
+
+    /*
      * How many people found this post helpful
      * Starts at 0
      */

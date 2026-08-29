@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { posts as postsApi } from '../api'
 import type { Post, User } from '../types'
 import { timeAgo } from '../utils/format'
-import { Avatar, TopicChips } from './ui'
+import { Avatar, Message, TopicChips } from './ui'
 import { CommentSection } from './CommentSection'
+import { TopicPicker } from './TopicPicker'
 
 /*
  * PostCard - One post in the feed
@@ -37,6 +38,63 @@ export function PostCard({
   const [showComments, setShowComments] = useState(isQuestion && post.commentCount > 0)
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  /*
+   * Editing happens in place, on the card.
+   *
+   * Without this the only way to fix a typo was to delete and repost, which
+   * throws away every answer and every mark the post had collected. A very
+   * steep price for a missing letter.
+   */
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(post.content)
+  const [draftTopics, setDraftTopics] = useState<string[]>(post.topics)
+  const [editError, setEditError] = useState('')
+
+  function startEditing() {
+    /* Start from what is currently saved, not from an older abandoned draft. */
+    setDraft(post.content)
+    setDraftTopics(post.topics)
+    setEditError('')
+    setEditing(true)
+  }
+
+  async function handleSaveEdit() {
+    const content = draft.trim()
+
+    if (!content) {
+      setEditError('A post cannot be empty.')
+      return
+    }
+
+    if (draftTopics.length === 0) {
+      setEditError('Keep at least one topic so the right people still see this.')
+      return
+    }
+
+    /* Nothing actually changed - close without troubling the server. */
+    const sameTopics =
+      draftTopics.length === post.topics.length &&
+      draftTopics.every((t) => post.topics.includes(t))
+
+    if (content === post.content && sameTopics) {
+      setEditing(false)
+      return
+    }
+
+    setBusy(true)
+    setEditError('')
+
+    try {
+      const updated = await postsApi.update(post.id, { content, topics: draftTopics })
+      onUpdate(updated)
+      setEditing(false)
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Could not save your changes')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   /* What replies are called here. Same number, different meaning. */
   const replyWord = isQuestion ? 'Answers' : 'Comments'
@@ -173,6 +231,16 @@ export function PostCard({
                 null, so there is nothing here to leak. */}
             {!post.anonymous && post.authorUsername && `@${post.authorUsername} · `}
             {timeAgo(post.createdAt)}
+            {/*
+              Says the post was changed after people may have replied to it.
+              An answer written against the old wording otherwise looks like the
+              answerer misread the question, when really the question moved.
+            */}
+            {post.editedAt && (
+              <span className="edited-note" title={`Edited ${timeAgo(post.editedAt)}`}>
+                {' '}· edited
+              </span>
+            )}
           </span>
         </div>
 
@@ -183,9 +251,49 @@ export function PostCard({
         )}
       </header>
 
-      <p className="post-content">{post.content}</p>
+      {editing ? (
+        <div className="post-edit">
+          <label className="sr-only" htmlFor={`edit-${post.id}`}>
+            Edit your post
+          </label>
+          <textarea
+            id={`edit-${post.id}`}
+            className="post-edit-text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={4}
+            maxLength={2000}
+            autoFocus
+          />
 
-      <TopicChips topics={post.topics} onSelect={onTopicClick} />
+          <TopicPicker
+            selected={draftTopics}
+            onChange={setDraftTopics}
+            label="Topics"
+            max={5}
+            placeholder="Add a topic..."
+          />
+
+          <Message kind="error" onDismiss={() => setEditError('')}>
+            {editError}
+          </Message>
+
+          <div className="post-edit-actions">
+            <button className="btn btn-small" onClick={handleSaveEdit} disabled={busy}>
+              {busy ? 'Saving...' : 'Save changes'}
+            </button>
+            <button className="link" onClick={() => setEditing(false)} disabled={busy}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className="post-content">{post.content}</p>
+
+          <TopicChips topics={post.topics} onSelect={onTopicClick} />
+        </>
+      )}
 
       <footer className="post-actions">
         <button
@@ -230,6 +338,13 @@ export function PostCard({
 
         {/* `ownPost` is a yes/no answer about the viewer. It works for
             anonymous posts too, without revealing who wrote anyone else's. */}
+        {/* Editing changes only the words and topics - see PostService.updatePost. */}
+        {post.ownPost && !editing && !confirmingDelete && (
+          <button className="action-btn subtle" onClick={startEditing}>
+            Edit
+          </button>
+        )}
+
         {post.ownPost &&
           (confirmingDelete ? (
             <span className="confirm-delete">

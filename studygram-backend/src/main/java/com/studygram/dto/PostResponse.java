@@ -75,6 +75,10 @@ public class PostResponse {
 
     private boolean anonymous;
     private LocalDateTime createdAt;
+
+    /* Null unless the post has been edited. Drives the "edited" marker. */
+    private LocalDateTime editedAt;
+
     private int helpfulCount;
 
     /*
@@ -116,6 +120,7 @@ public class PostResponse {
         response.setTopics(new ArrayList<>(post.getTopics()));
         response.setPostType(post.getPostType());
         response.setResolved(post.isResolved());
+        response.setEditedAt(post.getEditedAt());
 
         Long realAuthorId = post.getUser().getId();
 
