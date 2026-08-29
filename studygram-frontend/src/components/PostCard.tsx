@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { posts as postsApi } from '../api'
-import type { Post, User } from '../types'
+import type { Post, PostType, User } from '../types'
 import { timeAgo } from '../utils/format'
 import { Avatar, Message, TopicChips } from './ui'
 import { CommentSection } from './CommentSection'
@@ -42,19 +42,27 @@ export function PostCard({
   /*
    * Editing happens in place, on the card.
    *
-   * Without this the only way to fix a typo was to delete and repost, which
-   * throws away every answer and every mark the post had collected. A very
-   * steep price for a missing letter.
+   * Without this, the only way to fix a typo was to delete and repost, which
+   * throws away every answer and every mark the post had collected.
    */
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(post.content)
   const [draftTopics, setDraftTopics] = useState<string[]>(post.topics)
+  const [draftType, setDraftType] = useState<PostType>(post.postType)
+
+  /*
+   * The kind of post is only editable while nobody has replied. After that an
+   * answer exists that was written against a question, and turning it into a
+   * share strands them.
+   */
+  const canChangeType = post.commentCount === 0
   const [editError, setEditError] = useState('')
 
   function startEditing() {
     /* Start from what is currently saved, not from an older abandoned draft. */
     setDraft(post.content)
     setDraftTopics(post.topics)
+    setDraftType(post.postType)
     setEditError('')
     setEditing(true)
   }
@@ -77,7 +85,7 @@ export function PostCard({
       draftTopics.length === post.topics.length &&
       draftTopics.every((t) => post.topics.includes(t))
 
-    if (content === post.content && sameTopics) {
+    if (content === post.content && sameTopics && draftType === post.postType) {
       setEditing(false)
       return
     }
@@ -86,7 +94,11 @@ export function PostCard({
     setEditError('')
 
     try {
-      const updated = await postsApi.update(post.id, { content, topics: draftTopics })
+      const updated = await postsApi.update(post.id, {
+        content,
+        topics: draftTopics,
+        postType: draftType,
+      })
       onUpdate(updated)
       setEditing(false)
     } catch (err) {
@@ -110,7 +122,7 @@ export function PostCard({
    * wants to say and currently has no way to: I do not understand this either.
    * That is worth expressing twice over - it tells the rest of the community
    * this question is worth answering, and it tells the asker they are not the
-   * only one, which is the whole promise on the landing page.
+   * only one.
    *
    * Same button, same count, same table underneath. Only the wording changes,
    * and nobody sees both on one post.
@@ -195,10 +207,26 @@ export function PostCard({
 
   async function handleDelete() {
     setBusy(true)
+    setEditError('')
+
     try {
       await postsApi.remove(post.id)
       onDelete(post.id)
-    } catch {
+    } catch (err) {
+      /*
+       * SAY SOMETHING WHEN IT FAILS.
+       *
+       * This used to swallow the error and just close the confirmation. So when
+       * deleting broke on the server, the button appeared to do nothing at all -
+       * you pressed Yes, the prompt closed, the post stayed, and there was no
+       * hint anywhere that a request had been made and refused.
+       *
+       * An action that fails silently is worse than one that fails loudly: you
+       * cannot tell a broken feature from one you are using wrong.
+       */
+      setEditError(
+        err instanceof Error ? err.message : 'Could not delete this post. Try again.',
+      )
       setBusy(false)
       setConfirmingDelete(false)
     }
@@ -265,6 +293,34 @@ export function PostCard({
             maxLength={2000}
             autoFocus
           />
+
+          {/*
+            Shown only while the thread is empty. Offering a control that the
+            server will refuse is worse than not offering it - the button looks
+            broken rather than deliberately unavailable.
+          */}
+          {canChangeType && (
+            <div className="type-switch" role="radiogroup" aria-label="What kind of post">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={draftType === 'QUESTION'}
+                className={`type-option ${draftType === 'QUESTION' ? 'active' : ''}`}
+                onClick={() => setDraftType('QUESTION')}
+              >
+                <span aria-hidden="true">❓</span> Question
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={draftType === 'SHARE'}
+                className={`type-option ${draftType === 'SHARE' ? 'active' : ''}`}
+                onClick={() => setDraftType('SHARE')}
+              >
+                <span aria-hidden="true">✎</span> Share
+              </button>
+            </div>
+          )}
 
           <TopicPicker
             selected={draftTopics}
@@ -365,6 +421,18 @@ export function PostCard({
             </button>
           ))}
       </footer>
+
+      {/*
+        Errors from actions on the card itself - a failed delete, most likely.
+        The edit form has its own copy beside its buttons; this one covers
+        everything that happens when the form is closed, so no action on this
+        card can fail without saying so.
+      */}
+      {!editing && (
+        <Message kind="error" onDismiss={() => setEditError('')}>
+          {editError}
+        </Message>
+      )}
 
       {showComments && (
         <CommentSection

@@ -28,7 +28,7 @@ import { Avatar, Message } from './ui'
  * Now the conversation is sent with every message, so follow-ups work. And
  * Summarize and Practice became ACTIONS ON THE CONVERSATION rather than modes:
  * "write up what we just covered", "now test me on it". Those are things a post
- * cannot do, which is what makes this page worth having.
+ * cannot do, and that is what makes this page useful.
  */
 
 /*
@@ -176,7 +176,7 @@ export function AiAssistant({ currentUser }: { currentUser: User }) {
         <div>
           <h2>Study assistant</h2>
           <p className="muted">
-            A private conversation — nobody else sees this. Ask follow-ups; it
+            A private conversation, nobody else sees this. Ask follow-ups; it
             remembers what you have been discussing.
           </p>
         </div>

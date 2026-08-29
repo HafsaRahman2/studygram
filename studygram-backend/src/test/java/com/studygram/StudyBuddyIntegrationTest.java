@@ -191,8 +191,8 @@ class StudyBuddyIntegrationTest extends IntegrationTestBase {
      * Declining used to mark the row "REJECTED" and keep it, while
      * sendBuddyRequest refuses whenever any row exists at all. So one decline
      * walled these two off from each other permanently, in both directions -
-     * and the leftover row was rendered to both of them as "Declined", telling
-     * the sender in as many words that they had been turned down.
+     * and the leftover row showed to both of them as "Declined", which told the
+     * sender they had been turned down.
      */
 
     @Test

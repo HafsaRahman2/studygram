@@ -13,8 +13,8 @@ import { Avatar, EmptyState, Message, Spinner, TopicChips } from './ui'
  * your attention (a pending request) sits below things that do not.
  *
  * The backend for this existed for months with no UI at all. Wiring it up
- * turned up a vulnerability nobody had noticed precisely because nothing ever
- * called the endpoints: /pending and /sent were returning raw entities, and
+ * turned up a vulnerability nobody had noticed, because nothing ever called
+ * the endpoints: /pending and /sent were returning raw entities, and
  * therefore BCrypt password hashes. Unused code is unreviewed code.
  */
 
@@ -347,7 +347,7 @@ function FindPeople({
   /*
    * DEBOUNCED SEARCH
    *
-   * Firing a request on every keystroke would send one per letter — six
+   * Firing a request on every keystroke would send one per letter, six
    * requests to type "hafsa", five of them already stale by the time they
    * return, and results that flicker as they arrive out of order.
    *
@@ -528,8 +528,8 @@ function FindPeople({
  * The right button for where you two stand.
  *
  * The server sends the relationship (see UserSearchResult), so this component
- * only has to render it — there is no client-side logic deciding who you are
- * connected to, which is exactly how it should be.
+ * only has to render it. There is no client-side logic deciding who you are
+ * connected to.
  */
 function RelationshipAction({
   result,

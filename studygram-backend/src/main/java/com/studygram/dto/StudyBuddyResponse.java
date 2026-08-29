@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
  *
  * /api/buddies/pending and /sent used to return StudyBuddy ENTITIES directly.
  * A StudyBuddy holds two User objects, and Jackson happily serialized all of
- * both — which meant the response contained:
+ * both, which meant the response contained:
  *
  *     "password": "$2a$10$EXAMPLE.HASH.NOT.A.REAL.ONE..."
  *
@@ -30,7 +30,7 @@ import java.time.LocalDateTime;
  *
  * WHAT "OTHER USER" MEANS
  *
- * A StudyBuddy row records a direction — `user` sent, `buddy` received. But
+ * A StudyBuddy row records a direction, `user` sent, `buddy` received. But
  * whoever is looking already knows who they are; what they want to see is the
  * PERSON ON THE OTHER END. So this DTO resolves that, and reports the direction
  * separately.

@@ -1959,7 +1959,7 @@ textarea {
   letter-spacing: 0;
 }
 
-/* A count on a tab, quiet — it is information, not a demand. */
+/* A count on a tab, quiet, it is information, not a demand. */
 .tab-count {
   margin-left: 0.4rem;
   font-size: 0.75rem;
@@ -1968,7 +1968,7 @@ textarea {
 }
 
 /*
- * A badge, loud — this one means somebody is waiting for you.
+ * A badge, loud, this one means somebody is waiting for you.
  * Deliberately different from .tab-count: "you have 3 buddies" and "3 people
  * are waiting" should not look the same.
  */
@@ -2065,7 +2065,7 @@ textarea {
   gap: 0.5rem;
 }
 
-/* A status, not a button — flat, no hover, nothing to click. */
+/* A status, not a button, flat, no hover, nothing to click. */
 .pill {
   display: inline-block;
   padding: 0.25rem 0.7rem;

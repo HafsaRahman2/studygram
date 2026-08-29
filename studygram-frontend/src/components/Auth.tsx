@@ -297,7 +297,7 @@ export function Signup({
             placeholder="Search subjects you want in your feed..."
           />
           <small className="field-hint">
-            Pick {MIN_INTERESTS}–{MAX_INTERESTS}. This is what your feed gets built from —
+            Pick {MIN_INTERESTS}-{MAX_INTERESTS}. This is what your feed gets built from,
             you can change it any time.
           </small>
         </div>
@@ -447,7 +447,7 @@ export function ForgotPassword({ onNavigate }: { onNavigate: (page: Page) => voi
         <form onSubmit={handleRedeem}>
           <Message kind="info">
             If that email has an account, a token has been created. This demo has
-            no mail server, so it is printed in the backend console — copy it from
+            no mail server, so it is printed in the backend console, copy it from
             there.
           </Message>
 

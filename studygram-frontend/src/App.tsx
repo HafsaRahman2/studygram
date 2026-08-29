@@ -225,7 +225,7 @@ export default function App() {
           <span className="server-spinner" aria-hidden="true" />
           <span>
             <strong>Waking up the server.</strong> This demo is on a free tier
-            that sleeps when nobody is using it — it takes about 30 seconds the
+            that sleeps when nobody is using it, it takes about 30 seconds the
             first time, then it is fast.
           </span>
         </div>
@@ -278,7 +278,7 @@ export default function App() {
 
       <footer className="footer">
         <p>
-          StudyGram — React + TypeScript on Spring Boot and PostgreSQL.{' '}
+          StudyGram. React + TypeScript on Spring Boot and PostgreSQL.{' '}
           <a
             href="https://github.com/HafsaRahman2/studygram"
             target="_blank"

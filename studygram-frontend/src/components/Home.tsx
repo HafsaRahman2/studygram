@@ -15,13 +15,13 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
   const features = [
     {
       icon: '🎓',
-      title: 'Your own AI assistant — without depending on it',
+      title: 'Your own AI assistant, without depending on it',
       body: 'Ask it anything, push back when it does not click, then get it to test you on what you covered. It helps you understand; it does not do the understanding for you.',
     },
     {
       icon: '🙋',
       title: 'Getting stuck? Can’t understand properly?',
-      body: 'Ask real people who have been through the same thing — and anonymously, if you would rather not put your name to it.',
+      body: 'Ask real people who have been through the same thing, and anonymously, if you would rather not put your name to it.',
     },
     {
       icon: '🤝',
@@ -30,7 +30,7 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
     },
     {
       icon: '☕',
-      title: 'Take a break — a real one',
+      title: 'Take a break, a real one',
       body: 'Five minutes, then back to it. StudyGram will not let you get lost.',
     },
   ]
@@ -46,7 +46,7 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
 
         <p className="hero-sub">
           Getting distracted while studying? Jumping from one app to another just to
-          find one answer — then somehow scrolling your feed for an hour without
+          find one answer, then somehow scrolling your feed for an hour without
           even realising?
         </p>
 

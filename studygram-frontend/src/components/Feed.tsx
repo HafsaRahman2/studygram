@@ -86,8 +86,8 @@ export function Feed({ currentUser }: { currentUser: User }) {
    *
    * The rule now: if it belongs in what you are looking at, it appears there.
    * If it does not, the filter clears so you land somewhere it definitely
-   * shows. Either way you always see the thing you just wrote, which is the
-   * only confirmation that really convinces anyone.
+   * shows. Either way you always see the post you just wrote, which is the
+   * clearest way to confirm it worked.
    */
   function handlePosted(created: Post) {
     const belongsHere =
@@ -126,9 +126,8 @@ export function Feed({ currentUser }: { currentUser: User }) {
         promise about how the control behaves: a screen reader announces
         "tab, 1 of 3", and the user then expects arrow keys to move between
         them and each tab to point at a panel via aria-controls. None of that
-        was implemented, so the announcement was a lie - and being told a
-        keyboard shortcut exists when it does not is worse than not being
-        told anything.
+        was implemented, so the announcement was wrong. Being told a keyboard
+        shortcut exists when it does not is worse than being told nothing.
 
         What these actually are is three toggle buttons that change what the
         list below shows. aria-pressed says exactly that, and it is true.
@@ -146,9 +145,9 @@ export function Feed({ currentUser }: { currentUser: User }) {
           Deliberately NOT disabled when you have no interests.
 
           A disabled button cannot be focused, so a keyboard or screen reader
-          user could never reach it - and the tooltip explaining why it was
-          off was attached to the very element they could not reach. The
-          explanation was only ever visible to people who did not need it.
+          user could never reach it, and the tooltip explaining why it was off
+          was attached to that same button. So the explanation was only visible
+          to people who did not need it.
 
           Now it always works, and the empty state below says what to do.
           Signup requires 2-5 interests anyway, so this only affects accounts
@@ -377,7 +376,7 @@ function Composer({
             placeholder={
               isQuestion
                 ? "What are you stuck on? Include what you've already tried."
-                : 'A tip, a breakthrough — anything that helps someone else.'
+                : 'A tip, a breakthrough, anything that helps someone else.'
             }
             rows={3}
             maxLength={MAX_LENGTH}

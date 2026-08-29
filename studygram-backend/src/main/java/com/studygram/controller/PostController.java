@@ -263,7 +263,8 @@ public class PostController {
         try {
 
             Post updated = postService.updatePost(
-                    id, me.id(), request.getContent(), request.getTopics());
+                    id, me.id(), request.getContent(), request.getTopics(),
+                    request.getPostType());
 
             /*
              * Rebuilt through toResponses so the edited post comes back with its

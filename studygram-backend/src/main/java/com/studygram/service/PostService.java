@@ -346,25 +346,6 @@ public class PostService {
     }
 
     /*
-     * DELETE POST
-     *
-     * Only the owner should be able to delete.
-     *
-     * ORDER MATTERS HERE.
-     *
-     * Comments and helpful marks both store a post_id foreign key. A database
-     * will refuse to delete a row that other rows still reference - otherwise
-     * those rows would point at nothing. So the children have to go first:
-     *
-     *     helpfuls  ->  comments  ->  post
-     *
-     * @Transactional wraps all three deletes in a single database transaction.
-     * If any one of them fails, every one of them is rolled back, so we can
-     * never end up with a post whose comments were deleted but which still
-     * exists itself.
-     */
-    @Transactional
-    /*
      * EDIT A POST
      *
      * Fixing a typo should not cost you the answers you already have. Without
@@ -384,11 +365,12 @@ public class PostService {
      *               post without their name, retroactively and without warning.
      *               That decision is made once, when posting.
      *
-     * Only the words and the topics move, and both are re-validated with the
-     * same rules createPost uses - a rule that applies at one door and not the
-     * other is not a rule.
+     * Only the content and the topics change, and both are validated with the
+     * same rules createPost uses. A rule that is only checked in one place is
+     * not really enforced.
      */
-    public Post updatePost(Long postId, Long userId, String content, Set<String> topics) {
+    public Post updatePost(Long postId, Long userId, String content, Set<String> topics,
+                           String postType) {
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -414,6 +396,37 @@ public class PostService {
             throw new RuntimeException("A post can have at most " + MAX_TOPICS_PER_POST + " topics");
         }
 
+        /*
+         * The kind of post can change, but only while nobody has answered.
+         *
+         * The original rule was that it could never change, because answers are
+         * written against a question and turning it into a share afterwards
+         * leaves them attached to something that no longer asks anything.
+         *
+         * That only holds once an answer exists. Before then, a mis-tagged post
+         * is just a mistake with no way to fix it, and people do mis-tag often.
+         * Half the posts in the first real feed were questions filed as shares.
+         * Making someone delete and repost to fix a dropdown is the same dead
+         * end this method exists to remove.
+         *
+         * So: free to change while the thread is empty, frozen the moment
+         * somebody has taken the trouble to reply.
+         */
+        if (postType != null && !postType.equals(post.getPostType())) {
+
+            if (!Post.TYPE_QUESTION.equals(postType) && !Post.TYPE_SHARE.equals(postType)) {
+                throw new RuntimeException("A post must be a question or a share");
+            }
+
+            if (commentRepository.countByPost(post) > 0) {
+                throw new RuntimeException(
+                        "People have already answered this, so it cannot change between "
+                        + "a question and a share");
+            }
+
+            post.setPostType(postType);
+        }
+
         post.setContent(content.trim());
         post.setTopics(topics);
         post.setEditedAt(LocalDateTime.now());
@@ -421,6 +434,25 @@ public class PostService {
         return postRepository.save(post);
     }
 
+    /*
+     * DELETE POST
+     *
+     * Only the owner should be able to delete.
+     *
+     * ORDER MATTERS HERE.
+     *
+     * Comments and helpful marks both store a post_id foreign key. A database
+     * will refuse to delete a row that other rows still reference - otherwise
+     * those rows would point at nothing. So the children have to go first:
+     *
+     *     helpfuls  ->  comments  ->  post
+     *
+     * @Transactional wraps all three deletes in a single database transaction.
+     * If any one of them fails, every one of them is rolled back, so we can
+     * never end up with a post whose comments were deleted but which still
+     * exists itself.
+     */
+    @Transactional
     public void deletePost(Long postId, Long userId) {
 
         Post post = postRepository.findById(postId)

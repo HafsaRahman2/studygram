@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * The same gap ran the other way: the profile accepted ten interests that
  * signup would have refused.
  *
- * A rule enforced at only one of the two doors is not a rule.
+ * A rule that is only checked in one place is not really enforced.
  */
 class ProfileIntegrationTest extends IntegrationTestBase {
 

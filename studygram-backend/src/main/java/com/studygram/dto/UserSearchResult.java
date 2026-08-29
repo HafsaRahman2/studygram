@@ -15,7 +15,7 @@ import java.util.List;
  *
  * The frontend could work that out by fetching your buddies and both request
  * lists and cross-referencing every result against all three. That is three
- * extra requests and a rule reimplemented in the browser — the exact pattern
+ * extra requests and a rule reimplemented in the browser, the exact pattern
  * that produced this project's earlier bugs.
  *
  * So the server answers it once, per result.
@@ -50,8 +50,8 @@ public class UserSearchResult {
     /*
      * Topics you both listed as interests.
      *
-     * This is the entire premise of the app — "find people studying the same
-     * thing" — so showing WHY someone is a good match matters more than showing
+     * This is the entire premise of the app , "find people studying the same
+     * thing", so showing WHY someone is a good match matters more than showing
      * that they exist. A result reading "3 shared interests: Programming,
      * Mathematics, Physics" is a reason to connect; a bare username is not.
      */

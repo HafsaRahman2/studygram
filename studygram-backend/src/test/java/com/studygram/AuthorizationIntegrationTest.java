@@ -533,11 +533,9 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
     @DisplayName("editing cannot change who wrote a post, or whether it was anonymous")
     void editCannotChangeAuthorshipOrAnonymity() throws Exception {
         /*
-         * The request body is a CreatePostRequest, so a caller can put
-         * "anonymous" and "postType" in it. updatePost reads neither.
-         *
-         * Turning anonymity OFF afterwards would expose somebody who chose to
-         * post without their name - retroactively, and without being asked.
+         * Anonymity is decided once, when posting. Turning it off afterwards
+         * would expose somebody who chose to post without their name -
+         * retroactively, and without being asked.
          */
         boolean wasAnonymous = postRepository.findById(alicePostId).orElseThrow().isAnonymous();
 
@@ -547,14 +545,113 @@ class AuthorizationIntegrationTest extends IntegrationTestBase {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "content", "reworded again",
                                 "topics", java.util.List.of("Programming"),
-                                "anonymous", !wasAnonymous,
-                                "postType", "QUESTION"))))
+                                "anonymous", !wasAnonymous))))
                 .andExpect(status().isOk());
 
         Post after = postRepository.findById(alicePostId).orElseThrow();
         assertThat(after.isAnonymous()).as("anonymity is decided once, when posting").isEqualTo(wasAnonymous);
-        assertThat(after.getPostType()).as("people answered it as what it was").isEqualTo("SHARE");
         assertThat(after.getUser().getId()).isEqualTo(alice.getId());
+    }
+
+    @Test
+    @DisplayName("a mis-tagged post can be corrected while nobody has answered")
+    void typeCanChangeBeforeAnyAnswer() throws Exception {
+        /*
+         * People mis-tag constantly - half the posts in the first real feed were
+         * questions filed as shares. Before anyone replies, that is just a
+         * mistake, and there has to be a way to fix it that is not "delete and
+         * start again".
+         */
+        mockMvc.perform(put("/api/posts/" + alicePostId)
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Alice's post about recursion",
+                                "topics", java.util.List.of("Programming"),
+                                "postType", "QUESTION"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.postType").value("QUESTION"));
+    }
+
+    @Test
+    @DisplayName("once somebody answers, the kind of post is frozen")
+    void typeIsFrozenAfterAnAnswer() throws Exception {
+        /*
+         * The answer was written against a question. Turning the post into a
+         * share afterwards leaves that answer attached to something that no
+         * longer asks anything, and makes the person who wrote it look confused.
+         */
+        mockMvc.perform(post("/api/comments")
+                        .header("Authorization", bearer(bobToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "postId", alicePostId,
+                                "content", "Because it stops the recursion.",
+                                "anonymous", false))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/posts/" + alicePostId)
+                        .header("Authorization", bearer(aliceToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "content", "Alice's post about recursion",
+                                "topics", java.util.List.of("Programming"),
+                                "postType", "QUESTION"))))
+                .andExpect(status().isBadRequest());
+
+        assertThat(postRepository.findById(alicePostId).orElseThrow().getPostType())
+                .isEqualTo("SHARE");
+    }
+
+
+    @Test
+    @DisplayName("you CAN delete your own post, along with its answers and marks")
+    void canDeleteYourOwnPost() throws Exception {
+        /*
+         * WHY THIS TEST EXISTS
+         *
+         * There was already a test that Bob cannot delete Alice's post. It
+         * passed happily while deleting was broken for EVERYBODY - it asserts a
+         * 400, and a 400 is exactly what a broken endpoint returns.
+         *
+         * A suite that only ever checks the unhappy path will keep telling you
+         * everything is fine while nothing works. This one deletes for real.
+         *
+         * The break was that deletePost lost its @Transactional annotation, and
+         * the derived deleteByPost queries it calls cannot run without one:
+         * "No EntityManager with actual transaction available for current
+         * thread". Nothing failed at compile time; it failed on every click.
+         */
+        mockMvc.perform(post("/api/comments")
+                        .header("Authorization", bearer(bobToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "postId", alicePostId,
+                                "content", "An answer that must go with it.",
+                                "anonymous", false))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/posts/" + alicePostId + "/helpful")
+                        .header("Authorization", bearer(bobToken)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/posts/" + alicePostId)
+                        .header("Authorization", bearer(aliceToken)))
+                .andExpect(status().isOk());
+
+        assertThat(postRepository.findById(alicePostId)).isEmpty();
+
+        /*
+         * The children have to be gone too. A database will not delete a parent
+         * while rows still point at it, so leftovers here would mean the delete
+         * only half happened.
+         */
+        assertThat(commentRepository.findAll())
+                .as("answers on a deleted post must not survive it")
+                .isEmpty();
+        assertThat(helpfulRepository.findAll())
+                .as("marks on a deleted post must not survive it")
+                .isEmpty();
     }
 
 }

@@ -15,18 +15,18 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 
 /*
- * JwtService - Creates and verifies the tokens that prove who a request is from
+ * JwtService - makes and checks the tokens that prove who a request is from.
  *
- * WHAT PROBLEM THIS SOLVES
+ * THE PROBLEM THIS FIXES
  *
  * Before this, the API identified callers by a number in the URL:
  *
  *     DELETE /api/posts/5?userId=1
  *
- * The server checked that user 1 owned post 5 - but never checked that the
- * person sending the request WAS user 1. Changing the number to 2 was enough to
- * act as somebody else. Every ownership rule in the app rested on the client
- * being honest about its own identity.
+ * The server did check that user 1 owned post 5. But it never checked that the
+ * person sending the request WAS user 1. Change the 1 to a 2 and you could
+ * delete someone else's post. Every ownership check in the app was trusting the
+ * client to be honest about its own identity.
  *
  * WHAT A JWT IS
  *
@@ -35,29 +35,29 @@ import java.util.Date;
  *     header . payload . signature
  *     eyJhbGci.eyJzdWIiOiIxIiwi.dBjftJeZ4CV
  *
- * The header says which algorithm signed it. The payload holds the claims -
- * here, which user this is and when the token expires. The signature is a hash
- * of the first two parts made with a secret only this server knows.
+ * The header says which algorithm signed it. The payload holds the claims,
+ * which here are the user id and when the token expires. The signature is a
+ * hash of the first two parts made with a secret only this server knows.
  *
- * IMPORTANT: the payload is ENCODED, NOT ENCRYPTED. Anyone holding a token can
- * read its contents - paste one into jwt.io and you will see the user id in
- * plain text. That is fine and expected; it is why nothing secret goes in a
- * token. What the signature guarantees is that the contents were not CHANGED.
- * Edit a single character of the payload and the signature stops matching, so
- * the server rejects it. You cannot forge a token for another user without the
- * secret.
+ * IMPORTANT: the payload is encoded, not encrypted. Anyone holding a token can
+ * read what is in it. Paste one into jwt.io and you will see the user id in
+ * plain text. That is expected, and it is why nothing secret goes in a token.
+ *
+ * What the signature proves is that the payload was not changed. Edit one
+ * character of it and the signature stops matching, so the server rejects the
+ * token. You cannot forge a token for another user without the secret.
  *
  * WHY TOKENS INSTEAD OF SESSIONS
  *
- * A session means the server remembers every logged-in user in memory or a
- * shared store. A token means the server remembers nothing: everything needed
- * to identify the caller travels with the request and is verified by maths.
- * That keeps the API stateless, which is simpler here and is what lets an API
- * scale to more than one server without a shared session store.
+ * A session means the server has to remember every logged-in user. A token
+ * means it remembers nothing: everything needed to identify the caller travels
+ * with the request and is verified by the signature. That keeps the API
+ * stateless, which is simpler here, and it is what would let the API run on
+ * more than one server without a shared session store.
  *
- * The trade-off is that a token cannot be un-issued. Once minted it is valid
- * until it expires, so there is no instant "log out everywhere". That is why
- * the lifetime below is limited rather than indefinite.
+ * The trade-off is that a token cannot be cancelled once it is issued. It stays
+ * valid until it expires, so there is no instant "log out everywhere". That is
+ * why the lifetime below is limited rather than indefinite.
  */
 @Service
 public class JwtService {

@@ -4,17 +4,21 @@
 
 ## Why I built it
 
-I'd get stuck on one thing and open three apps to fix it. ChatGPT for a quick explanation. Reddit
-for an answer from someone who had actually done it. Discord to ask a person directly. Somewhere in
-between I'd be scrolling, replying to friends, or watching reels — and the one thing I sat down to
-learn had cost me an hour.
+When I got stuck on something, I used three apps to fix it. ChatGPT for a quick
+explanation. Reddit to see how a real person answered it. Discord to ask someone
+directly. And in between all that I would start scrolling, or reply to friends, or
+watch reels. I sat down to learn one thing and lost an hour.
 
-StudyGram is those three in one place. Ask the assistant and get an answer straight away, without
-leaning on it. Post the same question where real people can answer it properly — anonymously, if
-you'd rather not put your name to it. Build a crew out of the people studying what you study.
+StudyGram puts those three things in one place:
 
-*Take a break* is the part I built for myself. You do need to stop. The difference here is that the
-break has a timer on it, so it stays a break instead of becoming the hour I used to lose.
+- **Ask the AI assistant** and get an answer right away.
+- **Post the same question** so real people can answer it properly. You can post
+  without your name if you do not want to ask in public.
+- **Build a crew** of people studying the same things as you.
+
+*Take a break* is the part I built for myself. Everyone needs to stop sometimes.
+The difference is that this break has a timer, so it stays a break instead of
+becoming the hour I used to lose.
 
 **Stack:** React 19 + TypeScript (Vite) · Spring Boot 3 + Java 17 · Spring Security + JWT · PostgreSQL · Groq API
 
@@ -42,19 +46,20 @@ break has a timer on it, so it stays a break instead of becoming the hour I used
 
 ## What it does
 
-| Feature | Description |
+| Feature | What it does |
 | --- | --- |
-| **Ask or share** | Every post is a **question** or a **share**. Questions get answers, can be marked answered, and are visually distinct from someone sharing what they learned. |
-| **Topic-based feed** | Posts carry one to five topics. The *For you* feed returns only posts matching the interests on your profile. |
-| **Anonymous posting** | Publish without your identity attached. The server strips the author entirely — see [Engineering notes](#anonymity-is-enforced-on-the-server). |
-| **Lifesaver / Same here** | One mark per person per post, recorded in a join table. It reads *Lifesaver* on a tip and *Same here* on a question, because marking a question means "I'm stuck on this too". |
-| **Communities** | All 65 topics are browsable communities, seeded on startup, reachable from the feed's topic menu. |
-| **AI study assistant** | One conversation that remembers what you have been discussing, so follow-ups work. *Summarise it* and *Test me on it* act on that conversation rather than being separate modes. Groq API. |
-| **Take a break** | A 5-minute timer with finite calming activities, then a one-hour cooldown enforced server-side. |
-| **Privacy controls** | Your email is private by default and omitted from the API response entirely, not merely hidden in the UI. |
-| **Token authentication** | Stateless JWT auth. Every endpoint derives the caller from a signed token rather than trusting an id in the URL. |
-| **GitHub showcase** | Optionally pulls your public repositories onto your profile. |
-| **Your crew** | Find people by shared interests, send and answer requests. Declining deletes the request, so nobody is told they were turned down and neither person is locked out of connecting later. |
+| **Ask or share** | Every post is either a **question** or a **share**. Questions get answers and can be marked as answered. Shares are things you learned. |
+| **Topic feed** | Each post has 1 to 5 topics. The *For you* feed only shows posts that match the interests on your profile. |
+| **Post without your name** | You can post anonymously. The server does not send your name or your ID with the post at all, so it cannot leak. |
+| **Lifesaver / Same here** | One mark per person, per post. It says *Lifesaver* on a tip and *Same here* on a question, because marking a question means "I am stuck on this too". |
+| **Edit your own post** | Fix a typo without losing the answers you already have. You can also change a question to a share, but only until someone answers it. |
+| **Communities** | All 65 topics are communities you can browse from the feed. |
+| **AI study assistant** | One chat that remembers what you have been talking about, so follow-up questions work. Two buttons act on that chat: *Summarise it* and *Test me on it*. |
+| **Take a break** | A 5 minute timer with a few calm things to do, then you cannot take another break for an hour. The server enforces the wait, not the browser. |
+| **Your crew** | Find people who study what you study. If someone declines your request, they are not told and neither of you is blocked from trying again later. |
+| **Privacy** | Your email is only ever sent to you. Other people's copies leave it out completely. |
+| **Login with tokens** | Every request proves who you are with a signed token, instead of trusting a user ID in the web address. |
+| **GitHub on your profile** | Optionally show your public repositories. |
 
 ## Screenshots
 
@@ -116,7 +121,7 @@ Repository ──── database access (Spring Data generates the SQL)
 Entity ──────── a class that maps to a table
 ```
 
-**DTOs** sit alongside this. Nothing that leaves the API is an entity — every response is a
+**DTOs** sit alongside this. Nothing that leaves the API is an entity. Every response is a
 purpose-built class in `dto/`, which is what makes anonymity and the privacy switches enforceable
 rather than cosmetic.
 
@@ -154,12 +159,12 @@ communities                                (standalone; matched to posts by topi
 
 Three tables are worth calling out:
 
-- **`post_topics`** — a post's topics get one row each rather than a comma-separated string in one
+- **`post_topics`**: a post's topics get one row each rather than a comma-separated string in one
   column. This is what makes the personalized feed a plain indexed lookup instead of substring
   matching. See [Engineering notes](#normalizing-topics-fixed-the-personalized-feed).
-- **`helpfuls`** — a join table of `(user, post)`. Being a row rather than a counter is what stops
+- **`helpfuls`**: a join table of `(user, post)`. Being a row rather than a counter is what stops
   double-marking and lets the app list who found a post useful.
-- **`password_reset_tokens`** — random, expiring, single-use.
+- **`password_reset_tokens`**: random, expiring, single-use.
 
 There is no `sessions` table, deliberately: authentication is stateless, and a token carries
 everything needed to identify its holder. See [Authentication](#authentication).
@@ -173,7 +178,7 @@ everything needed to identify its holder. See [Authentication](#authentication).
 - Java 17+
 - Node 18+
 - PostgreSQL running locally
-- A free [Groq API key](https://console.groq.com/keys) *(optional — everything except the AI
+- A free [Groq API key](https://console.groq.com/keys) *(optional, everything except the AI
   assistant works without one)*
 
 ### 1. Create the database
@@ -209,10 +214,10 @@ openssl rand -base64 32
 ```
 
 Paste it in as `STUDYGRAM_JWT_SECRET`. Without one the app still starts, on a built-in development
-secret, and logs a loud warning every time — anyone who knows that value can forge a token for any
+secret, and logs a loud warning every time. Anyone who knows that value can forge a token for any
 account.
 
-`.env` is gitignored. No credential is ever committed — `application.properties` reads everything
+`.env` is gitignored. No credential is ever committed. `application.properties` reads everything
 from the environment.
 
 ### 3. Start the backend
@@ -236,13 +241,13 @@ cd studygram-backend
 ./mvnw test
 ```
 
-No setup needed — the suite runs against an in-memory database, so it works on a fresh clone with
+No setup needed. The suite runs against an in-memory database, so it works on a fresh clone with
 PostgreSQL stopped.
 
 ### Resetting a password in development
 
 There is no mail server, so the reset token is written to the **backend console** instead of being
-emailed — the same pattern Django and Rails use in development. Request a reset in the UI, copy the
+emailed. This is the same pattern Django and Rails use in development. Request a reset in the UI, copy the
 token from the terminal running the backend, and paste it into step 2.
 
 ---
@@ -255,7 +260,7 @@ Three pieces, on three free tiers: a database, the API, and the static frontend.
 backend must be told which frontend origin to accept. So: database → backend → frontend → update the
 backend's CORS setting.
 
-### 1. Database — Neon
+### 1. Database: Neon
 
 Create a free Postgres project at [neon.tech](https://neon.tech) and copy the connection string. It
 looks like:
@@ -278,7 +283,7 @@ DB_PASSWORD=password
 Tables are created on first boot by `ddl-auto=update`, and `CommunitySeeder` fills in the 65 topics.
 Nothing to run by hand.
 
-### 2. Backend — Render
+### 2. Backend: Render
 
 New → **Web Service**, connect the GitHub repo, then:
 
@@ -299,14 +304,14 @@ GROQ_API_KEY=...                    # optional; AI assistant is disabled without
 CORS_ORIGINS=http://localhost:5173  # replaced in step 4
 ```
 
-**Generate a fresh JWT secret for production.** Do not reuse the development one — anyone who has it
+**Generate a fresh JWT secret for production.** Do not reuse the development one. Anyone who has it
 can forge a token for any account.
 
 `PORT` is set by Render automatically, and `application.properties` reads it.
 
 First build takes a few minutes. Check it with `curl https://your-service.onrender.com/api/hello`.
 
-### 3. Frontend — Vercel
+### 3. Frontend: Vercel
 
 Import the same repo, then:
 
@@ -322,7 +327,7 @@ VITE_API_URL=https://your-service.onrender.com
 ```
 
 > **Vite inlines environment variables at build time, not runtime.** Changing `VITE_API_URL` later
-> means triggering a rebuild — editing it in the dashboard alone does nothing to the already-built
+> means triggering a rebuild, editing it in the dashboard alone does nothing to the already-built
 > files.
 
 ### 4. Close the loop
@@ -334,8 +339,8 @@ CORS_ORIGINS=https://studygram.vercel.app
 ```
 
 Without this the browser blocks every request, because the API only accepts origins it has been told
-about. This is the step that is easy to forget, and the symptom — everything failing with no useful
-error — looks far worse than the one-line cause.
+about. This is the step that is easy to forget, and the symptom, everything failing with no useful
+error, looks far worse than the one-line cause.
 
 ### The cold start
 
@@ -346,7 +351,7 @@ That is why the app pings `/api/hello` on load and shows a banner explaining the
 (`useServerWakeup.ts`). The delay is unavoidable on a free tier; being told about it is the
 difference between someone waiting and someone assuming the site is broken.
 
-If it matters enough — a link on a CV probably qualifies — Render's cheapest paid instance removes
+If it matters enough, a link on a CV probably qualifies, Render's cheapest paid instance removes
 the sleep entirely.
 
 ---
@@ -357,7 +362,7 @@ All endpoints are prefixed `/api`. Everything except signup, login and password 
 `Authorization: Bearer <token>` header.
 
 **No endpoint takes the caller's own id.** Ids that appear in these URLs identify the *resource*
-being acted on — which post, whose profile to view — never who is doing the acting. That comes from
+being acted on, which post, whose profile to view, never who is doing the acting. That comes from
 the token. See [Authentication](#authentication) for why that distinction is the whole point.
 
 ### Auth
@@ -432,7 +437,7 @@ sessions and the server stores nothing about who is logged in.
    Invalid -> the request continues unauthenticated, and SecurityConfig returns 401
 ```
 
-The payload is **encoded, not encrypted** — paste a token into jwt.io and you can read the user id.
+The payload is **encoded, not encrypted**: paste a token into jwt.io and you can read the user id.
 That is expected, which is why nothing secret goes inside one. What the signature guarantees is that
 the contents were not *changed*: edit one character and the signature no longer matches, so the
 token is refused. Forging a token for another user requires the signing secret.
@@ -445,7 +450,7 @@ Before this, the API identified callers by a number in the URL:
 DELETE /api/posts/5?userId=1
 ```
 
-The server dutifully checked that user 1 owned post 5 — but never checked that the person sending
+The server dutifully checked that user 1 owned post 5, but never checked that the person sending
 the request *was* user 1. Changing the number was enough to act as somebody else. Every ownership
 rule in the app rested on the client being honest about its own identity.
 
@@ -453,7 +458,7 @@ Concretely, these were all possible, and all now have a test proving they are no
 
 | Attack | Then | Now |
 | --- | --- | --- |
-| `DELETE /api/posts/{id}?userId=<owner>` | Deleted anyone's post | Refused — id comes from the token |
+| `DELETE /api/posts/{id}?userId=<owner>` | Deleted anyone's post | Refused, id comes from the token |
 | `PUT /api/profile/{someoneElsesId}` | Edited anyone's profile and privacy switches | Endpoint takes no id at all |
 | `POST /api/change-password {userId: 2}` | Changed another user's password | Field removed from the DTO |
 | `GET /api/posts/feed/{anyUserId}` | Read anyone's personalized feed, exposing private interests | Always your own |
@@ -467,13 +472,13 @@ endpoint added later would be public until someone remembered to protect it. Def
 means forgetting is safe.
 
 **CSRF protection is off, and that is correct here.** CSRF attacks work by making a browser send a
-request it *automatically* attaches credentials to — which is what cookies do. This API uses no
+request it *automatically* attaches credentials to, which is what cookies do. This API uses no
 cookies; the token goes in a header that JavaScript must add deliberately, and another site's
 JavaScript cannot read our token in order to add it. If the token ever moves into a cookie, CSRF
 protection has to come back on.
 
 **Ownership checks still live in the services.** The token establishes *who you are*; it says
-nothing about *what is yours*. `PostService.deletePost` still verifies ownership — that check simply
+nothing about *what is yours*. `PostService.deletePost` still verifies ownership, that check simply
 means something now that the identity behind it is trustworthy.
 
 ---
@@ -492,7 +497,7 @@ PostgreSQL.
 | `JwtServiceTest` | Token round-trip, tampered payloads, tokens signed with the wrong secret, expiry, malformed input, secrets that are too short |
 | `AuthorizationIntegrationTest` | The full application over real HTTP: login, 401s, and one test per attack in the table above |
 | `StudyBuddyIntegrationTest` | The password-hash leak, the request lifecycle, and the search and matching rules |
-| `StudygramBackendApplicationTests` | The context loads — catches broken beans, missing properties and invalid queries |
+| `StudygramBackendApplicationTests` | The context loads, catches broken beans, missing properties and invalid queries |
 
 The negative tests are the point. That a valid token works is table stakes; what protects accounts
 is that a **tampered** one does not, and that Bob cannot delete Alice's post however he asks.
@@ -507,7 +512,7 @@ Built in rather than bolted on, because retrofitting it is far harder.
 | --- | --- |
 | **Skip link** | First thing Tab reaches; jumps straight past the navigation to the content |
 | **Focus trap** | The break overlay keeps keyboard focus inside it, closes on Escape, and returns focus to the button that opened it |
-| **Live regions** | Posting, and answers arriving, are announced — events a sighted user learns from things appearing on screen |
+| **Live regions** | Posting, and answers arriving, are announced, events a sighted user learns from things appearing on screen |
 | **Contrast** | Muted text was around 4.0:1 and 2.6:1, below the 4.5:1 WCAG AA asks for. Both palettes corrected. |
 | **`lang="en"`** | Screen readers pick a pronunciation engine from it; without it an English page can be read as nonsense |
 | **Focus rings** | `:focus-visible`, so keyboard users get a ring and mouse users do not |
@@ -522,7 +527,7 @@ Auditing found real bugs that looked fine on screen:
   that did not exist, because `PasswordInput` rendered its input without one. Sighted users saw a
   labelled field; a screen reader announced an unnamed "protected edit text". On the reset screen
   that meant two indistinguishable password boxes.
-- **The break timer button announced only "4:57"** — a number with no indication of what it counted
+- **The break timer button announced only "4:57"**: a number with no indication of what it counted
   or what pressing it would do.
 - **The feed had no heading at all**, so heading navigation had nothing to land on.
 
@@ -530,8 +535,8 @@ Two decisions worth explaining:
 
 **The break timer is `aria-live="off"`.** A live region announcing a new time every second would talk
 over everything else and never stop, making the break unusable. The remaining time is exposed via
-`aria-label` and available on demand instead. *A live region is not automatically an improvement —
-an unwelcome one is worse than none.*
+`aria-label` and available on demand instead. *A live region is not automatically an improvement. An unwelcome one is worse
+than none.*
 
 **`sr-only` clips rather than hides.** `display: none` would remove the text from the accessibility
 tree entirely, which defeats the point. It is clipped to a single pixel so it stays readable to
@@ -550,7 +555,7 @@ first visit. Three changes cut what a user has to deal with, without removing
 anything the backend can do:
 
 **Explore folded into the feed.** A separate page listed every topic and showed
-that community's posts — which is what the feed already did when you clicked a
+that community's posts, which is what the feed already did when you clicked a
 topic chip. The same destination by two routes, costing a nav item. It is now a
 topic menu in the feed's own tab row, and the category browsing survived intact.
 Nav went from six items to four.
@@ -560,14 +565,14 @@ already loaded, so a topic with nothing recent looked empty even when it was not
 The menu asks the server for that community's posts instead.
 
 **Seven privacy switches became one sensible default.** Nobody configures seven
-toggles, so in practice everybody's email was public — that was
+toggles, so in practice everybody's email was public, that was
 the default, and nothing prompted anyone to think about it. Contact details now
 default to hidden and the switches are gone. The flags and their enforcement
 stayed, because the rule is still worth having; only the decision was taken away
 from the user.
 
 **The composer collapses.** The feed opened with a textarea, a topic picker, a
-checkbox and a button stacked above the first post — four decisions before you
+checkbox and a button stacked above the first post, four decisions before you
 had read anything. It is one line now, expanding on click. Most visits to a feed
 are to read.
 
@@ -583,8 +588,8 @@ people who had marked them private.
 Nobody had noticed because nothing ever called those endpoints. The backend was "finished" and the
 frontend had never been built, so no request had ever been looked at.
 
-The fix is the same one as everywhere else in this file — map through a DTO, never serialize an
-entity — and the test asserts against the **raw response body** rather than a named field, because
+The fix is the same one as everywhere else in this file, map through a DTO, never serialize an
+entity, and the test asserts against the **raw response body** rather than a named field, because
 the bug was that an entire object tree got serialized. A field-level check would have passed: nobody
 thinks to assert on `$[0].user.buddy.password`.
 
@@ -607,7 +612,7 @@ The first version of `PostResponse` sent `authorName: "Anonymous"` but still inc
 That defeated the feature entirely. Anyone could open DevTools, read the raw JSON, and match the ID
 back to a user. The post *said* anonymous; the data underneath did not.
 
-Now an anonymous post carries **no identifying field at all** — `authorId` and `authorUsername` are
+Now an anonymous post carries **no identifying field at all**: `authorId` and `authorUsername` are
 null. Ownership is signalled instead by a boolean `ownPost`, computed server-side for the one person
 asking, which answers "may I delete this?" without naming anybody.
 
@@ -618,7 +623,7 @@ the response, so there is nothing to find in the page source.
 
 ### Normalizing topics fixed the personalized feed
 
-Topics were stored as one string — `"Programming, Web Development"` — in a single column. The
+Topics were stored as one string, `"Programming, Web Development"`, in a single column. The
 personalized feed then tried to match a user's interest against that whole string, and
 `"Programming"` never equals `"Programming, Web Development"`. **The *For you* tab returned zero
 posts, always.** Splitting on `","` also left a leading space on every item after the first, which
@@ -630,7 +635,7 @@ ordinary indexed lookup, a post can carry any number of topics, and the feed wor
 ### Deleting a post used to crash
 
 `comments.post_id` and `helpfuls.post_id` are foreign keys, and a database will not delete a row that
-other rows still reference. Any post someone had commented on could not be deleted — it failed with
+other rows still reference. Any post someone had commented on could not be deleted, it failed with
 a constraint violation.
 
 `PostService.deletePost` now removes the children first, inside a single `@Transactional` method so a
@@ -642,7 +647,7 @@ The original flow accepted an email address *and* a new password in one request,
 who knew your email could take your account.
 
 It is now two steps. Step one creates a random, 30-minute, single-use token tied to the account. Step
-two exchanges the token for a new password — and takes **no** email or user ID, so the caller cannot
+two exchanges the token for a new password, and takes **no** email or user ID, so the caller cannot
 name whose password to change.
 
 Step one also returns an identical response whether or not the account exists, so the endpoint cannot
@@ -665,7 +670,7 @@ Counting down in JavaScript is unreliable: browsers throttle timers in backgroun
 stops while a laptop sleeps, and anything in memory can be edited from the console.
 
 The server sends an absolute `endsAt` and the client recomputes `endsAt - now` on every tick. Ticks
-can be late, throttled or skipped and the displayed time is still right — the tick only decides *when
+can be late, throttled or skipped and the displayed time is still right, the tick only decides *when
 to re-read the clock*, never what the answer is.
 
 The cooldown deliberately starts when a break **ends**, not when it starts, so the study period
@@ -681,7 +686,7 @@ Honest list of what is not finished. These are known, not overlooked.
   everywhere" is not possible and a stolen token stays usable. The standard fix is a short-lived
   access token plus a refresh token, which is the next thing I would add.
 - **The token is kept in `localStorage`**, where page JavaScript can read it. An XSS flaw would
-  therefore leak the session. The alternative — an httpOnly cookie — is safer against XSS but
+  therefore leak the session. The alternative, an httpOnly cookie, is safer against XSS but
   reintroduces CSRF and needs matching server work. The trade-off is deliberate and documented in
   `api.ts` rather than glossed over.
 - **No rate limiting.** Nothing stops a script trying thousands of passwords against `/api/login`.
@@ -690,7 +695,7 @@ Honest list of what is not finished. These are known, not overlooked.
   authorization, the crew, and the places where the same data was served two different ways.
   Posting, comments and the break rules are verified by hand, not by the suite.
 - **Buddy suggestions are ranked in memory.** Every other user is loaded and scored in Java. Fine at
-  this size, wrong at any real one — the fix is to normalize interests into their own table, exactly
+  this size, wrong at any real one, the fix is to normalize interests into their own table, exactly
   as post topics were, and let the database do the matching.
 - **`ddl-auto=update` instead of migrations.** Convenient in development; a real deployment needs
   Flyway or Liquibase so schema changes are versioned and reversible.
@@ -702,33 +707,34 @@ Honest list of what is not finished. These are known, not overlooked.
 
 ## What I learned building this
 
-**Where you check a rule matters more than whether you check it.**
-I had rules enforced in the browser. The browser is the one place the user can change. Four
-separate bugs — anonymous posts still carrying the author's ID, the privacy settings, the break
-cooldown, and who you were logged in as — turned out to be the same mistake wearing different
-clothes. Every rule now runs on the server.
+**Check the rules on the server, not in the browser.**
+I first wrote some rules in the frontend. But a user can change anything in their
+own browser, so those rules could be skipped. Four different bugs came from this
+same mistake. Now every rule is checked on the server, where the user cannot
+touch it.
 
-**Knowing *who is asking* has to come first.**
-The app was careful about whether you owned a post before deleting it. But it read your user ID
-straight out of the URL, so anyone could type someone else's number in and the careful ownership
-check would agree. Checking permissions is worth nothing until you know who is asking. That is what
-the JWT fixed.
+**You have to know who is asking before you check what they are allowed to do.**
+My app checked "do you own this post?" before deleting it. But it took the user's
+ID from the web address, so anyone could type someone else's number and the check
+would say yes. I added JWT tokens, so the server knows who is asking from the
+token instead of trusting the address.
 
-**Storing a list in one text column quietly broke a whole feature.**
-Topics were saved as `"Maths, Physics"` in a single column, so matching them never worked properly
-and the *For you* feed came back empty for months. Nothing crashed — it just returned nothing.
-Splitting topics into their own table fixed it.
+**Putting a list in one text box broke a whole feature.**
+I saved topics as one line of text, like `"Maths, Physics"`. That made them very
+hard to search, so the *For you* feed found nothing and stayed empty for months.
+Nothing crashed, so I did not notice. I moved topics into their own table and it
+worked.
 
-**A database will not delete a row that other rows still point at.**
-Deleting a post crashed, because its comments still referenced it. Children first, then the parent.
-The error showed up in front of a real person, which is the worst place to find it.
+**A database will not delete something if other things still point to it.**
+Deleting a post crashed, because its comments still pointed at that post. I had to
+delete the comments first, then the post.
 
-**The same data served two ways will drift apart.**
-The feed and the topic page both listed posts, but only the feed counted the answers. So one post
-honestly said "1 answer" in one place and "0 answers" in the other. Nothing errored, nothing was
-logged, so nobody noticed. My tests now compare the two routes against *each other* instead of
-against numbers I typed in myself.
+**If the same data is sent from two places, they will stop matching.**
+The feed and the topic page both showed posts, but only the feed counted the
+answers. So one post said "1 answer" in one place and "0 answers" in the other.
+Nothing broke, so nobody noticed. I now build both from the same code, and my
+tests compare the two against each other.
 
-**A rule enforced in one place is not enforced.**
-Signup made you pick two to five interests. Editing your profile let you delete all of them — which
-silently broke your own feed, with nothing on screen connecting the two.
+**A rule in only one place is not a rule.**
+Signing up made you pick 2 to 5 interests. But editing your profile let you delete
+all of them, which quietly broke your own feed. Now both places check it.

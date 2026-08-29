@@ -109,9 +109,9 @@ public class StudyBuddyService {
      * punished by their own click, and a misclick was permanent, with nothing
      * in the interface to undo it.
      *
-     * Second, the leftover row was shown to both people as "Declined". So the
-     * person who had been turned down was told, in as many words, that they had
-     * been turned down. The app does not need to say that.
+     * Second, the leftover row showed to both people as "Declined". So the
+     * person who was turned down got told they were turned down. The app has no
+     * reason to say that.
      *
      * Deleting the row settles both: nobody is told anything, and either of
      * them can send a fresh request later if they want to. If it ever becomes a

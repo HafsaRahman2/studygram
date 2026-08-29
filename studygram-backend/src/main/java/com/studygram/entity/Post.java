@@ -84,7 +84,7 @@ public class Post {
      * It exists so the interface can say "edited" next to a post. On a Q&A
      * site that matters - somebody may have answered the ORIGINAL wording, and
      * an answer that no longer fits the question reads as though the answerer
-     * misunderstood, when in fact the question moved underneath them.
+     * misunderstood, when really the question changed after they replied.
      */
     @Column(name = "edited_at")
     private LocalDateTime editedAt;

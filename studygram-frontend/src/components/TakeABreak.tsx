@@ -182,7 +182,7 @@ function RestEyes() {
           <div className="eye-timer">{secondsLeft}</div>
           <h3>Look out a window</h3>
           <p className="activity-caption">
-            Find something far away — across the room, down the street — and let
+            Find something far away, across the room, down the street, and let
             your eyes settle on it. Do not look back at this screen yet.
           </p>
         </>
@@ -355,7 +355,7 @@ export function TakeABreak({
         */}
         <p className="break-note">
           Ending early starts your next {formatCooldown(status.cooldownMinutes)}{' '}
-          early too — you are not penalised for coming back sooner.
+          early too, you are not penalised for coming back sooner.
         </p>
       </div>
     </div>

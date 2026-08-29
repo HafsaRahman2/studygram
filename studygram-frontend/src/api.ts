@@ -51,7 +51,7 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
  * steal the token and act as the user until it expires.
  *
  * The more secure option is an httpOnly cookie, which JavaScript cannot read at
- * all — but that reintroduces CSRF (because browsers send cookies
+ * all, but that reintroduces CSRF (because browsers send cookies
  * automatically) and needs matching server work. This project uses localStorage
  * for simplicity and says so in the README rather than pretending the question
  * does not exist.
@@ -96,7 +96,7 @@ export function getAuthToken(): string | null {
 }
 
 /*
- * Called when the server rejects our token — expired, or the signing secret
+ * Called when the server rejects our token, expired, or the signing secret
  * changed because the backend restarted with a new one.
  *
  * A callback rather than importing the auth hook, because api.ts must not
@@ -183,7 +183,7 @@ async function request<T>(
 
   if (!response.ok) {
     /*
-     * 401 means the server did not accept our token — it expired, or it was
+     * 401 means the server did not accept our token, it expired, or it was
      * issued by a backend that has since restarted with a different secret.
      *
      * Handling it centrally means the app logs out cleanly instead of every
@@ -365,11 +365,11 @@ export const posts = {
   },
 
   /*
-   * Only the words and the topics. Whether a post is a question, and whether it
-   * is anonymous, are fixed when it is written - see PostService.updatePost for
-   * why - so there is deliberately no way to send them from here.
+   * The words, the topics, and - while nobody has answered yet - whether it is
+   * a question or a share. Anonymity is fixed when the post is written and there
+   * is deliberately no way to send it from here; see PostService.updatePost.
    */
-  update(postId: number, data: { content: string; topics: string[] }) {
+  update(postId: number, data: { content: string; topics: string[]; postType?: PostType }) {
     return request<Post>(`/api/posts/${postId}`, { method: 'PUT', body: data })
   },
 
@@ -473,7 +473,7 @@ export const buddies = {
   },
 
   /*
-   * Removes the connection in either state — an accepted buddy, or a pending
+   * Removes the connection in either state, an accepted buddy, or a pending
    * request you want to withdraw. The server looks up the connection between
    * the two of you regardless of who sent it.
    */
