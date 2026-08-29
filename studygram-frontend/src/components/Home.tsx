@@ -12,26 +12,39 @@ import type { Page } from '../types'
  * step.
  */
 export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
+  /*
+   * Four cards, written to the same shape on purpose.
+   *
+   * Every title starts with a verb, and every body is one sentence plus one
+   * concrete detail. That is what makes them scan as a set instead of four
+   * unrelated paragraphs, and it is why none of them runs to three clauses the
+   * way the old ones did.
+   *
+   * Each detail is also quietly answering "why not just use the app I already
+   * have?". Students who have been stuck on it too is why this is not Reddit.
+   * Test you on what you covered is why it is not ChatGPT. The timer is why
+   * taking a break here is different from just stopping.
+   */
   const features = [
     {
       icon: '🎓',
-      title: 'Your own AI assistant, without depending on it',
-      body: 'Ask it anything, push back when it does not click, then get it to test you on what you covered. It helps you understand; it does not do the understanding for you.',
+      title: 'Ask your assistant',
+      body: 'Get an answer straight away, ask follow-ups, then have it test you on what you covered.',
     },
     {
       icon: '🙋',
-      title: 'Getting stuck? Can’t understand properly?',
-      body: 'Ask real people who have been through the same thing, and anonymously, if you would rather not put your name to it.',
+      title: 'Ask real people',
+      body: 'Ask a question, or share something that worked. Real students answer, and you can stay anonymous.',
     },
     {
       icon: '🤝',
-      title: 'Make your own crew',
-      body: 'Find people studying what you study, and keep up with what they are working on.',
+      title: 'Build your crew',
+      body: 'Find people studying what you study, and keep up with what they’re working on.',
     },
     {
       icon: '☕',
-      title: 'Take a break, a real one',
-      body: 'Five minutes, then back to it. StudyGram will not let you get lost.',
+      title: 'Take a break that ends',
+      body: 'Five minutes, then back to it. The timer is the whole point.',
     },
   ]
 
@@ -53,8 +66,7 @@ export function Home({ onNavigate }: { onNavigate: (page: Page) => void }) {
         <p className="hero-sub hero-emphasis">You’re not the only one.</p>
 
         <p className="hero-sub">
-          StudyGram puts it all in one place, so the only thing you focus on is
-          focusing.
+          One place for all of it. Find your answer and get back to work.
         </p>
 
         <div className="hero-actions">

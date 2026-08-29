@@ -82,6 +82,15 @@ function ProfileView({
   const interests = parseInterests(currentUser.interests)
 
   /*
+   * The education <select> stores lowercase values ("university"), because that
+   * is what goes in the database. Showing the stored value raw put a lowercase
+   * word in the middle of a profile where everything else is capitalised.
+   */
+  const educationLabel = currentUser.education
+    ? currentUser.education.charAt(0).toUpperCase() + currentUser.education.slice(1)
+    : currentUser.education
+
+  /*
    * A row on your own profile.
    *
    * `privateToYou` marks contact details, which other people never see. It is a
@@ -138,7 +147,7 @@ function ProfileView({
 
       <div className="profile-rows">
         <Row label="Email" value={currentUser.email} privateToYou />
-        <Row label="Education" value={currentUser.education} />
+        <Row label="Education" value={educationLabel} />
         <Row label="GitHub" value={currentUser.githubUsername} />
       </div>
 

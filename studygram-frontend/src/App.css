@@ -2511,3 +2511,65 @@ textarea {
   align-items: center;
   gap: 0.75rem;
 }
+
+/*
+ * The note above the feed when "For you" had nothing and fell back to
+ * everything. Quiet on purpose: it explains, it does not warn.
+ */
+.feed-note {
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 0.87rem;
+}
+
+/* ------------------------------------------------- tables in AI answers */
+
+/*
+ * The wrapper scrolls, not the page. A wide table inside a chat bubble would
+ * otherwise drag the whole layout sideways on a narrow screen.
+ */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 0.6rem 0;
+}
+
+.md-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.84rem;
+  /* Undo the bubble's pre-wrap so cells wrap normally instead of keeping
+     every space the model happened to type. */
+  white-space: normal;
+}
+
+.md-table th,
+.md-table td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+
+  /*
+   * Undo the bubble's `overflow-wrap: anywhere`.
+   *
+   * That setting lets text break in the middle of a word, which is right for a
+   * chat bubble that must never overflow. Inside a table it is a disaster: the
+   * browser decides a column can be as narrow as one character, so
+   * "Application Programming Interface" came out as "Applicatio / n / Program
+   * / ming / Interface" stacked down a sliver of a column.
+   *
+   * With normal wrapping the column has to be at least as wide as its longest
+   * word, and anything still too wide scrolls in .md-table-wrap instead.
+   */
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+.md-table th {
+  background: var(--surface-2);
+  font-weight: 600;
+}

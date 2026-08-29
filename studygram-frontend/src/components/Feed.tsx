@@ -27,19 +27,40 @@ import { TopicPicker } from './TopicPicker'
 type FeedMode = 'all' | 'foryou' | 'topic'
 
 export function Feed({ currentUser }: { currentUser: User }) {
-  const [mode, setMode] = useState<FeedMode>('all')
+  const hasInterests = parseInterests(currentUser.interests).length > 0
+
+  /*
+   * WHICH TAB YOU LAND ON.
+   *
+   * For you, when you have interests. This app is about not being distracted,
+   * so opening on everybody else's subjects contradicts the thing it is for.
+   *
+   * The reason it used to open on All posts was the empty feed problem: a new
+   * user picks three interests, nobody has posted about them yet, and the first
+   * screen they ever see is blank. That is a worse first impression than
+   * showing them something irrelevant.
+   *
+   * The fallback below settles it, so the default no longer has to choose
+   * between focus and looking alive.
+   */
+  const [mode, setMode] = useState<FeedMode>(hasInterests ? 'foryou' : 'all')
   const [topic, setTopic] = useState<string | null>(null)
 
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const hasInterests = parseInterests(currentUser.interests).length > 0
+  /*
+   * True when For you had nothing, so we are showing everything instead. Drives
+   * the note above the list, because silently showing different posts than the
+   * tab claims would be its own kind of lie.
+   */
+  const [fellBack, setFellBack] = useState(false)
 
   /*
    * Which posts to show.
    *
-   * The topic case now asks the SERVER for that community's posts, rather than
+   * The topic case asks the SERVER for that community's posts, rather than
    * filtering whatever happened to already be loaded. The old client-side
    * filter silently only searched the most recent page of posts, so a topic
    * with nothing recent looked empty even when it was not.
@@ -47,6 +68,7 @@ export function Feed({ currentUser }: { currentUser: User }) {
   const loadPosts = useCallback(async () => {
     setLoading(true)
     setError('')
+    setFellBack(false)
 
     try {
       let data: Post[]
@@ -55,6 +77,16 @@ export function Feed({ currentUser }: { currentUser: User }) {
         data = await communitiesApi.postsIn(topic.toLowerCase())
       } else if (mode === 'foryou') {
         data = await postsApi.personalizedFeed()
+
+        /*
+         * Nothing matched. Rather than showing a blank page, fall back to the
+         * whole feed and say so. The user still gets their interests first
+         * whenever there is anything to give them.
+         */
+        if (data.length === 0) {
+          data = await postsApi.feed()
+          setFellBack(true)
+        }
       } else {
         data = await postsApi.feed()
       }
@@ -175,6 +207,19 @@ export function Feed({ currentUser }: { currentUser: User }) {
       <Message kind="error" onDismiss={() => setError('')}>
         {error}
       </Message>
+
+      {/*
+        Say when the list is not what the tab says it is.
+
+        Showing everything under a tab labelled "For you" without a word would
+        make the filter look broken, and the user would have no idea their
+        interests were the reason there was nothing.
+      */}
+      {!loading && fellBack && (
+        <p className="feed-note">
+          Nothing about your interests yet, so here is what everyone else is asking.
+        </p>
+      )}
 
       {loading && (
         <>

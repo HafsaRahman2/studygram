@@ -65,13 +65,17 @@ becoming the hour I used to lose.
 
 | The feed | Your crew |
 | --- | --- |
-| ![Feed](docs/screenshots/feed.jpg) | ![Your crew](docs/screenshots/buddies.jpg) |
+| ![The feed, showing questions and shares with topic tags](docs/screenshots/feed.jpg) | ![Your crew, people you have connected with](docs/screenshots/crew.jpg) |
 
-| AI study assistant | Take a break |
+| Study assistant | Take a break |
 | --- | --- |
-| ![Assistant](docs/screenshots/assistant.jpg) | ![Take a break](docs/screenshots/take-a-break.jpg) |
+| ![The study assistant answering a question](docs/screenshots/assistant.jpg) | ![The break timer with a breathing exercise](docs/screenshots/take-a-break.jpg) |
 
-The interface follows your system light/dark preference.
+| Your profile | Signing up |
+| --- | --- |
+| ![Your own profile, with interests and posts](docs/screenshots/profile.jpg) | ![The signup form, choosing interests](docs/screenshots/signup.jpg) |
+
+The interface follows your system light or dark preference.
 
 ---
 

@@ -62,16 +62,42 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
  * Consecutive list items have to be gathered into a single <ul>, which is why
  * the loop keeps a buffer rather than emitting one element per line.
  */
+/*
+ * Tidy up the exotic whitespace language models like to emit.
+ *
+ * A real answer came back containing this:
+ *
+ *     **What an\u202fArray\u202fIs**
+ *
+ * U+202F is a NARROW NO-BREAK SPACE. It is a legitimate character, but it is
+ * visibly thinner than a normal space, so on screen the words read as
+ * "anArray" with the two almost touching. It looked like a bug in the
+ * renderer, and it took reading the raw bytes to see that the model had simply
+ * chosen an unusual space.
+ *
+ * The zero-width characters are worse: they are invisible, so they can break a
+ * search or a comparison for reasons nobody can see. They are removed rather
+ * than replaced, because there is nothing there to replace.
+ */
+function normalizeWhitespace(text: string): string {
+  return text
+    /* Spaces that are too narrow, or that refuse to break. */
+    .replace(/[\u00A0\u2007\u2009\u200A\u202F\u2060]/g, ' ')
+    /* Characters with no width at all. */
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+}
+
 export function renderMarkdown(text: string): ReactNode {
   if (!text) return null
 
-  const lines = text.split('\n')
+  const lines = normalizeWhitespace(text).split('\n')
   const blocks: ReactNode[] = []
 
   let listBuffer: string[] = []
   let listOrdered = false
   let codeBuffer: string[] = []
   let inCodeFence = false
+  let tableBuffer: string[] = []
 
   function flushList() {
     if (listBuffer.length === 0) return
@@ -89,6 +115,87 @@ export function renderMarkdown(text: string): ReactNode {
     )
 
     listBuffer = []
+  }
+
+  /*
+   * TABLES
+   *
+   * Models reach for a table constantly, and not only when you ask them to
+   * compare things. "What does an API do?" came back as a table of terms. With
+   * no support for them the reader got the raw pipes and dashes printed as
+   * paragraphs, which looks like the app is broken rather than like the model
+   * chose a format.
+   *
+   *     | Term     | What it means |
+   *     |----------|---------------|
+   *     | Endpoint | A URL you...  |
+   *
+   * The middle row is the separator and carries no data - it only marks the
+   * row above as headers. Its presence is what makes this a table rather than
+   * three lines that happen to contain pipes, so it is what we test for.
+   */
+  function flushTable() {
+    if (tableBuffer.length === 0) return
+
+    const rows = tableBuffer.map((row) =>
+      row
+        .trim()
+        /* A row usually starts and ends with a pipe; those produce empty
+           cells at each end that are not really there. */
+        .replace(/^\||\|$/g, '')
+        .split('|')
+        .map((cell) => cell.trim()),
+    )
+
+    /*
+     * Without a separator row this is not a table, just a line or two that
+     * happen to contain pipes. Print them as written rather than inventing a
+     * table around them.
+     */
+    const hasSeparator =
+      rows.length >= 2 && rows[1].every((cell) => /^:?-{2,}:?$/.test(cell))
+
+    if (!hasSeparator) {
+      tableBuffer.forEach((row, i) =>
+        blocks.push(
+          <p key={`b${blocks.length}-${i}`}>{renderInline(row, `p-${blocks.length}-${i}`)}</p>,
+        ),
+      )
+      tableBuffer = []
+      return
+    }
+
+    const [headerRow, , ...bodyRows] = rows
+    const key = `b${blocks.length}`
+
+    blocks.push(
+      /*
+       * The wrapper scrolls rather than the page. A wide table inside a chat
+       * bubble would otherwise push the whole layout sideways.
+       */
+      <div className="md-table-wrap" key={key}>
+        <table className="md-table">
+          <thead>
+            <tr>
+              {headerRow.map((cell, i) => (
+                <th key={i}>{renderInline(cell, `${key}-th-${i}`)}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bodyRows.map((row, r) => (
+              <tr key={r}>
+                {row.map((cell, c) => (
+                  <td key={c}>{renderInline(cell, `${key}-td-${r}-${c}`)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>,
+    )
+
+    tableBuffer = []
   }
 
   function flushCode() {
@@ -121,11 +228,27 @@ export function renderMarkdown(text: string): ReactNode {
       continue
     }
 
-    /* Blank line closes any open list and separates paragraphs. */
+    /* Blank line closes any open list or table, and separates paragraphs. */
     if (line.trim() === '') {
       flushList()
+      flushTable()
       continue
     }
+
+    /*
+     * A table row. Collected until something that is not one turns up.
+     *
+     * Checked before headings and rules because a separator row like
+     * |---|---| would otherwise be mistaken for a horizontal rule.
+     */
+    if (/^\s*\|.*\|\s*$/.test(line)) {
+      flushList()
+      tableBuffer.push(line)
+      continue
+    }
+
+    /* Anything else ends a table. */
+    flushTable()
 
     /* Headings: #, ##, ### - all rendered small, since an answer sits inside
        a card and must not shout louder than the page around it. */
@@ -174,6 +297,7 @@ export function renderMarkdown(text: string): ReactNode {
 
   /* Close anything still open when the text ends. */
   flushList()
+  flushTable()
   flushCode()
 
   return <div className="markdown">{blocks}</div>

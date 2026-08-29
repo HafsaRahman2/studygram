@@ -230,13 +230,20 @@ function JustSit() {
  * was set to anything singular. Small, but it is the kind of thing a reader
  * notices immediately and quietly downgrades their opinion of everything else.
  */
+/*
+ * A length of time, always with its number: "1 minute", "45 minutes", "1 hour".
+ *
+ * It used to drop the number for the singular cases and return a bare "minute"
+ * or "hour", which only reads correctly in one specific sentence. Keeping the
+ * number means the caller can put this anywhere.
+ */
 function formatCooldown(minutes: number): string {
   if (minutes < 60) {
-    return minutes === 1 ? 'minute' : `${minutes} minutes`
+    return minutes === 1 ? '1 minute' : `${minutes} minutes`
   }
 
   const hours = Math.round(minutes / 60)
-  return hours === 1 ? 'hour' : `${hours} hours`
+  return hours === 1 ? '1 hour' : `${hours} hours`
 }
 
 /* ------------------------------------------------------------ main screen */
@@ -349,13 +356,18 @@ export function TakeABreak({
         </footer>
 
         {/*
-          Reads the real cooldown rather than hardcoding "hour". The value is
-          configurable, so the sentence was capable of confidently telling
-          somebody the wrong thing.
+          The cooldown value is read from the server rather than hardcoded,
+          because it is configurable and the sentence was capable of confidently
+          telling somebody the wrong number.
+ 
+          It is used as a LENGTH here ("the 1 hour wait"), not slotted in as a
+          noun. The old wording was "starts your next {cooldown} early too",
+          which read as "starts your next minute early too" in development and
+          "your next hour early too" in production. Neither means anything.
         */}
         <p className="break-note">
-          Ending early starts your next {formatCooldown(status.cooldownMinutes)}{' '}
-          early too, you are not penalised for coming back sooner.
+          You can come back early. The {formatCooldown(status.cooldownMinutes)} wait
+          before your next break starts when you finish, not when the timer runs out.
         </p>
       </div>
     </div>
