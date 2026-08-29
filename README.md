@@ -1,12 +1,22 @@
 # StudyGram
 
-A social network for students, built around **what you're learning** rather than what you're doing.
+**Study smarter. Ask questions. Find your people. Stay focused.**
 
-Every post is tagged by topic so your feed only shows subjects you actually study, questions can be
-asked anonymously, and an AI study assistant is built in — along with a *Take a break* timer that
-makes you stop every so often.
+## Why I built it
 
-**Stack:** React 19 + TypeScript (Vite) · Spring Boot 3 + Java · Spring Security + JWT · PostgreSQL · Groq API
+I'd get stuck on one thing and open three apps to fix it. ChatGPT for a quick explanation. Reddit
+for an answer from someone who had actually done it. Discord to ask a person directly. Somewhere in
+between I'd be scrolling, replying to friends, or watching reels — and the one thing I sat down to
+learn had cost me an hour.
+
+StudyGram is those three in one place. Ask the assistant and get an answer straight away, without
+leaning on it. Post the same question where real people can answer it properly — anonymously, if
+you'd rather not put your name to it. Build a crew out of the people studying what you study.
+
+*Take a break* is the part I built for myself. You do need to stop. The difference here is that the
+break has a timer on it, so it stays a break instead of becoming the hour I used to lose.
+
+**Stack:** React 19 + TypeScript (Vite) · Spring Boot 3 + Java 17 · Spring Security + JWT · PostgreSQL · Groq API
 
 ![StudyGram landing page](docs/screenshots/landing.jpg)
 
@@ -14,6 +24,7 @@ makes you stop every so often.
 
 ## Contents
 
+- [Why I built it](#why-i-built-it)
 - [What it does](#what-it-does)
 - [Screenshots](#screenshots)
 - [Architecture](#architecture)
@@ -34,23 +45,22 @@ makes you stop every so often.
 | Feature | Description |
 | --- | --- |
 | **Ask or share** | Every post is a **question** or a **share**. Questions get answers, can be marked answered, and are visually distinct from someone sharing what they learned. |
-| **Instant AI answers** | Ask a question and optionally get an AI answer immediately, while real people answer it properly. Always labelled as AI-generated. |
 | **Topic-based feed** | Posts carry one to five topics. The *For you* feed returns only posts matching the interests on your profile. |
 | **Anonymous posting** | Publish without your identity attached. The server strips the author entirely — see [Engineering notes](#anonymity-is-enforced-on-the-server). |
-| **Helpful marks & comments** | A join table records who found what helpful, so a post can be marked once per person and show who did. |
-| **Communities** | All 64 topics are browsable communities, seeded on startup, reachable from the feed's topic menu. |
-| **AI study assistant** | Four modes — chat, explain a topic, generate practice questions, summarize notes — via the Groq API. |
+| **Lifesaver / Same here** | One mark per person per post, recorded in a join table. It reads *Lifesaver* on a tip and *Same here* on a question, because marking a question means "I'm stuck on this too". |
+| **Communities** | All 65 topics are browsable communities, seeded on startup, reachable from the feed's topic menu. |
+| **AI study assistant** | One conversation that remembers what you have been discussing, so follow-ups work. *Summarise it* and *Test me on it* act on that conversation rather than being separate modes. Groq API. |
 | **Take a break** | A 5-minute timer with finite calming activities, then a one-hour cooldown enforced server-side. |
-| **Privacy controls** | Email and phone are private by default and omitted from the API response entirely, not merely hidden in the UI. |
+| **Privacy controls** | Your email is private by default and omitted from the API response entirely, not merely hidden in the UI. |
 | **Token authentication** | Stateless JWT auth. Every endpoint derives the caller from a signed token rather than trusting an id in the URL. |
 | **GitHub showcase** | Optionally pulls your public repositories onto your profile. |
-| **Study buddies** | Send, accept and reject buddy requests. *(API complete; no UI yet.)* |
+| **Your crew** | Find people by shared interests, send and answer requests. Declining deletes the request, so nobody is told they were turned down and neither person is locked out of connecting later. |
 
 ## Screenshots
 
-| The feed | Study buddies |
+| The feed | Your crew |
 | --- | --- |
-| ![Feed](docs/screenshots/feed.jpg) | ![Study buddies](docs/screenshots/buddies.jpg) |
+| ![Feed](docs/screenshots/feed.jpg) | ![Your crew](docs/screenshots/buddies.jpg) |
 
 | AI study assistant | Take a break |
 | --- | --- |
@@ -265,7 +275,7 @@ DB_PASSWORD=password
 > **Why Neon and not the hosting platform's own database?** Render's free Postgres is deleted after
 > 30 days. A link on a CV that works for a month and then breaks is worse than no link.
 
-Tables are created on first boot by `ddl-auto=update`, and `CommunitySeeder` fills in the 64 topics.
+Tables are created on first boot by `ddl-auto=update`, and `CommunitySeeder` fills in the 65 topics.
 Nothing to run by hand.
 
 ### 2. Backend — Render
@@ -502,7 +512,7 @@ Built in rather than bolted on, because retrofitting it is far harder.
 | **`lang="en"`** | Screen readers pick a pronunciation engine from it; without it an English page can be read as nonsense |
 | **Focus rings** | `:focus-visible`, so keyboard users get a ring and mouse users do not |
 | **Semantics** | Real `<main>`, `<nav>`, `<article>`, `<header>`; `role="tab"`/`aria-selected` on tabs; `aria-expanded` on menus |
-| **Decorative emoji** | `aria-hidden`, so a screen reader does not read "graduation cap" before every AI answer |
+| **Decorative emoji** | `aria-hidden`, so a screen reader does not read "graduation cap" before every assistant reply |
 | **Labels** | Every input is programmatically associated with its label, verified by a script rather than by eye |
 | **One `h1` per page** | Visually hidden where the design has no visible title, so heading navigation still works |
 
@@ -550,7 +560,7 @@ already loaded, so a topic with nothing recent looked empty even when it was not
 The menu asks the server for that community's posts instead.
 
 **Seven privacy switches became one sensible default.** Nobody configures seven
-toggles, so in practice everybody's email and phone number were public — that was
+toggles, so in practice everybody's email was public — that was
 the default, and nothing prompted anyone to think about it. Contact details now
 default to hidden and the switches are gone. The flags and their enforcement
 stayed, because the rule is still worth having; only the decision was taken away
@@ -565,7 +575,7 @@ are to read.
 
 ### Unused code is unreviewed code
 
-Wiring up the study buddies UI turned up a vulnerability that had been sitting in the codebase for
+Wiring up the crew UI turned up a vulnerability that had been sitting in the codebase for
 months: `/api/buddies/pending` and `/sent` returned `StudyBuddy` **entities**. Each holds two `User`
 objects, so the JSON contained BCrypt password hashes, plus emails and phone numbers belonging to
 people who had marked them private.
@@ -676,9 +686,9 @@ Honest list of what is not finished. These are known, not overlooked.
   `api.ts` rather than glossed over.
 - **No rate limiting.** Nothing stops a script trying thousands of passwords against `/api/login`.
 - **No pagination.** The feed returns every post. Fine at demo scale, wrong at any real size.
-- **Test coverage is deliberately narrow.** 40 tests, concentrated on authentication,
-  authorization and study buddies because that is where a bug is most costly. Posting, comments and
-  the break rules are verified by hand, not by the suite.
+- **Test coverage is deliberately narrow.** 70 tests, concentrated on authentication,
+  authorization, the crew, and the places where the same data was served two different ways.
+  Posting, comments and the break rules are verified by hand, not by the suite.
 - **Buddy suggestions are ranked in memory.** Every other user is loaded and scored in Java. Fine at
   this size, wrong at any real one — the fix is to normalize interests into their own table, exactly
   as post topics were, and let the database do the matching.
@@ -692,13 +702,33 @@ Honest list of what is not finished. These are known, not overlooked.
 
 ## What I learned building this
 
-- Where a rule is enforced matters more than whether it exists. Four separate bugs here — the
-  anonymous author ID, the privacy switches, the break cooldown, and identity itself — were all the
-  same mistake wearing different clothes: a rule implemented where the user controls the code.
-- Authentication and authorization are different questions, and getting the second right is worth
-  nothing without the first. This app checked ownership carefully from the very beginning. It just
-  had no idea who was asking, so every one of those careful checks was decorative.
-- Denormalized data reads fine and queries terribly. One comma-separated column silently broke a
-  headline feature for months.
-- Foreign keys will not let you delete a parent while children point at it, and the error surfaces
-  at the worst possible moment — in front of somebody.
+**Where you check a rule matters more than whether you check it.**
+I had rules enforced in the browser. The browser is the one place the user can change. Four
+separate bugs — anonymous posts still carrying the author's ID, the privacy settings, the break
+cooldown, and who you were logged in as — turned out to be the same mistake wearing different
+clothes. Every rule now runs on the server.
+
+**Knowing *who is asking* has to come first.**
+The app was careful about whether you owned a post before deleting it. But it read your user ID
+straight out of the URL, so anyone could type someone else's number in and the careful ownership
+check would agree. Checking permissions is worth nothing until you know who is asking. That is what
+the JWT fixed.
+
+**Storing a list in one text column quietly broke a whole feature.**
+Topics were saved as `"Maths, Physics"` in a single column, so matching them never worked properly
+and the *For you* feed came back empty for months. Nothing crashed — it just returned nothing.
+Splitting topics into their own table fixed it.
+
+**A database will not delete a row that other rows still point at.**
+Deleting a post crashed, because its comments still referenced it. Children first, then the parent.
+The error showed up in front of a real person, which is the worst place to find it.
+
+**The same data served two ways will drift apart.**
+The feed and the topic page both listed posts, but only the feed counted the answers. So one post
+honestly said "1 answer" in one place and "0 answers" in the other. Nothing errored, nothing was
+logged, so nobody noticed. My tests now compare the two routes against *each other* instead of
+against numbers I typed in myself.
+
+**A rule enforced in one place is not enforced.**
+Signup made you pick two to five interests. Editing your profile let you delete all of them — which
+silently broke your own feed, with nothing on screen connecting the two.
